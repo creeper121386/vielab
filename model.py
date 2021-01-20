@@ -354,7 +354,7 @@ class CubicFilter(nn.Module):
             img[0, 2, :, :] + R[0, 59]
 
         img_cubic = torch.clamp(img + cubic_mask, 0, 1)
-        return img_cubic
+        return img_cubic    # shape (1, 3, h, w)
 
 
 class GraduatedFilter(nn.Module):
@@ -837,6 +837,8 @@ class ConvBlock(Block, nn.Module):
     def __init__(self, num_in_channels, num_out_channels, stride=1):
         """Initialise function for the higher level convolution block
 
+        input -> conv3x3 -> LeakeyRELU -> output
+
         :param in_channels:
         :param out_channels:
         :param stride:
@@ -949,16 +951,19 @@ class DeepLPFParameterPrediction(nn.Module):
 
         img_clamped = torch.clamp(img, 0, 1)
 
+        # "mask" means filter(image).
         img_cubic = self.cubic_filter.get_cubic_mask(feat, img)
         mask_scale_graduated = self.graduated_filter.get_graduated_mask(
             feat, img)
         mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
             feat, img)
 
+        ## Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
         mask_scale_fuse = torch.clamp(
             mask_scale_graduated+mask_scale_elliptical, 0, 2)
         img_fuse = torch.clamp(img_cubic * mask_scale_fuse, 0, 1)
 
+        ## Y = Y1 + Y3 :
         img = torch.clamp(img_fuse+img, 0, 1)
 
         return img

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+from rich.console import Console
+
 import os.path
 import random
 from abc import ABCMeta, abstractmethod
@@ -12,6 +14,7 @@ import numpy as np
 import torch
 
 matplotlib.use('agg')
+console = Console()
 
 class Dataset(torch.utils.data.Dataset):
 
@@ -29,8 +32,11 @@ class Dataset(torch.utils.data.Dataset):
         self.normaliser = normaliser
         self.is_valid = is_valid
 
-        dir_this_GT = '/data1/why/deep_local_parametric_filters/data.down2/input'
-        dir_this_input = '/data1/why/deep_local_parametric_filters/data.down2/output'
+        dir_this_GT = '/data1/why/deep_local_parametric_filters/data_eval/output'
+        dir_this_input = '/data1/why/deep_local_parametric_filters/data_eval/input'
+
+        console.log(f'GT Directory path: [red]{dir_this_GT}[/red]')
+        console.log(f'Input Directory path: [red]{dir_this_input}[/red]')
 
         self.train_ids = []
 
@@ -43,7 +49,7 @@ class Dataset(torch.utils.data.Dataset):
         name_list_GT.sort()
         name_list_input.sort()
         assert len(name_list_GT) == len(name_list_input)
-        print('Dataset length: ', len(name_list_GT))
+        console.log('Dataset length: ', len(name_list_GT))
         for nn in range(len(name_list_GT)):
             self.train_ids.append([os.path.join(dir_this_GT, name_list_GT[nn]), os.path.join(
                 dir_this_input, name_list_input[nn])])

@@ -32,35 +32,38 @@ def main():
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-    del timestamp 
-    del handlers
+    del timestamp, handlers
     # ───  ───────────────────────────────────────────────────────────────────────────
-
 
     parser = argparse.ArgumentParser(
         description="Train the DeepLPF neural network on image pairs")
     parser.add_argument(
         "--num_epoch", type=int, required=False, help="Number of epoches (default 5000)", default=100000)
     parser.add_argument(
-        "--gpu", type=int, required=True, help="which gpu to use.")
+        "--gpu", type=int, required=False, help="which gpu to use.", default=0)
     parser.add_argument(
         "--valid_every", type=int, required=False, help="Number of epoches after which to compute validation accuracy",
         default=500)
     parser.add_argument(
-        "--checkpoint_filepath", required=False, help="Location of checkpoint file", default=None)
+        "--save_every", type=int, required=False, help="Number of epoches after which to save the model.",
+        default=1)
     parser.add_argument(
-        "--inference_img_dirpath", required=False,
-        help="Directory containing images to run through a saved DeepLPF model instance", default=None)
+        "--checkpoint_filepath", required=False, help="Location of checkpoint file to continue train", default=None)
+    # parser.add_argument(
+    #     "--GT_dirpath", required=True,
+    #     help="Directory containing ground truth images for training.")
+    # parser.add_argument(
+    #     "--input_dirpath", required=True,
+    #     help="Directory containing input images for training")
     args = parser.parse_args()
     num_epoch = args.num_epoch
     valid_every = args.valid_every
     checkpoint_filepath = args.checkpoint_filepath
-    inference_img_dirpath = args.inference_img_dirpath
+    save_every = args.save_every
 
     torch.cuda.set_device(args.gpu)
     console.log('Current cuda device:', torch.cuda.current_device())
-    del parser
-    del args
+    del parser, args
     console.log('Paramters:', log_locals=True)
 
     training_dataset = Dataset(data_dict=None, transform=transforms.Compose(
@@ -72,7 +75,7 @@ def main():
                                                        num_workers=4)
 
     net = model.DeepLPFNet()
-    start_epoch = 0
+    start_epoch = 1
 
     # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
     # logging.info('######### Network created #########')
@@ -110,7 +113,7 @@ def main():
         start_epoch = start_epoch.split('.pth')[0]
         start_epoch = int(start_epoch)
 
-    print(start_epoch)
+    console.log('Epoch start from:', start_epoch)
     count = 0
     for epoch in range(start_epoch, num_epoch, 1):
 
@@ -120,26 +123,24 @@ def main():
 
         for batch_num, data in enumerate(training_data_loader, 0):
 
-            input_img_batch, output_img_batch, category = Variable(data['input_img'], requires_grad=False).cuda(), \
+            input_batch, gt_batch, category = Variable(data['input_img'], requires_grad=False).cuda(), \
                 Variable(data['output_img'],
                          requires_grad=False).cuda(), data['name']
 
-            start_time = time.time()
-            net_output_img_batch = net(input_img_batch)
-            net_output_img_batch = torch.clamp(
-                net_output_img_batch, 0.0, 1.0)
+            output = net(input_batch)
+            # import ipdb; ipdb.set_trace()
+            output = torch.clamp(
+                output, 0.0, 1.0)
 
             if count % 500 == 0:
-                output_image11 = net_output_img_batch[0, :, :, :]
+                output_image11 = output[0, :, :, :]
                 output_image11 = output_image11.permute(1, 2, 0)
                 output_image11 = output_image11.clone().detach().cpu().numpy()
                 output_image11 = output_image11 * 255.0
                 output_image11 = output_image11[:, :, [2, 1, 0]]
                 cv2.imwrite('test2.jpg', output_image11.astype(np.uint8))
 
-            elapsed_time = time.time() - start_time
-
-            loss = criterion(net_output_img_batch, output_img_batch)
+            loss = criterion(output, gt_batch)
 
             optimizer.zero_grad()
             loss.backward()
@@ -152,14 +153,14 @@ def main():
             logging.info('[%d] train loss: %.15f' %
                          (epoch + 1, running_loss / examples))
 
-            if count % 500 == 0:
-                snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
-                snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
-                torch.save(net.state_dict(), snapshot_path)
+        if count % save_every == 0:
+            snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
+            snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
+            torch.save(net.state_dict(), snapshot_path)
 
-        snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
-        snapshot_path = snapshot_prefix + "_" + str(num_epoch)
-        torch.save(net.state_dict(), snapshot_path)
+    snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
+    snapshot_path = snapshot_prefix + "_" + str(num_epoch)
+    torch.save(net.state_dict(), snapshot_path)
 
 
 if __name__ == "__main__":
