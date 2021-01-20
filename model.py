@@ -11,50 +11,21 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
          Pierre Marza (pierre.marza@gmail.com)
 
 '''
-import matplotlib
-matplotlib.use('agg')
-import unet
-from skimage.transform import resize
-import cv2
-import imageio
-from abc import ABCMeta, abstractmethod
-# from data import Adobe5kDataLoader, Dataset
-import unet
-import skimage
-import random
-import time
-import torch
-import torch.nn as nn
-import traceback
-import torchvision.transforms as transforms
-from torch.autograd import Variable
-from torchvision.datasets import ImageFolder
-from torchvision.transforms import ToTensor
-# import data
-import logging
-from PIL import Image
-from shutil import copyfile
-import argparse
-import shutil
-import torch.optim as optim
-import copy
-import numpy as np
-import math
 from util import ImageProcessing
-import datetime
-import torch.nn.init as net_init
-from scipy.ndimage.filters import convolve
-from matplotlib.image import imread, imsave
-import matplotlib.pyplot as plt
-from copy import deepcopy
-from skimage import io, color
-from math import exp
+import unet
+from torch.autograd import Variable
 import torch.nn.functional as F
+import torch.nn as nn
+import torch
+from math import exp
 import os.path
-from skimage.measure import compare_ssim as ssim
-import glob
-import os
-print(torch.__version__)
+import math
+import matplotlib
+
+matplotlib.use('agg')
+
+
+print('Pytorch Version:', torch.__version__)
 # np.set_printoptions(threshold=np.nan)
 
 

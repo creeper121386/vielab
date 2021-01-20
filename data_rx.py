@@ -1,58 +1,17 @@
 # -*- coding: utf-8 -*-
-'''
-This is a PyTorch implementation of the CVPR 2020 paper:
-"Deep Local Parametric Filters for Image Enhancement": https://arxiv.org/abs/2003.13985
-
-Please cite the paper if you use this code
-
-Tested with Pytorch 0.3.1, Python 3.5
-
-Authors: Sean Moran (sean.j.moran@gmail.com), 
-         Pierre Marza (pierre.marza@gmail.com)
-
-'''
-import os
-from skimage.measure import compare_ssim as ssim
-import os.path
-import torch.nn.functional as F
-from skimage import io, color
-from copy import deepcopy
-import matplotlib.pyplot as plt
-from matplotlib.image import imread, imsave
-from scipy.ndimage.filters import convolve
-import torch.nn.init as net_init
-import datetime
-import util
-import math
-import numpy as np
-import copy
-import torch.optim as optim
-import shutil
-import argparse
-from shutil import copyfile
-from PIL import Image
 import logging
-# import data
-from collections import defaultdict
-from torchvision.transforms import ToTensor
-from torchvision.datasets import ImageFolder
-from torch.autograd import Variable
-import torchvision.transforms as transforms
-import traceback
-import torch.nn as nn
-import torch
-import time
+import os
+import os.path
 import random
-import skimage
-import unet
 from abc import ABCMeta, abstractmethod
-import imageio
-import cv2
-from skimage.transform import resize
-import matplotlib
-matplotlib.use('agg')
-# np.set_printoptions(threshold=np.nan)
+from collections import defaultdict
 
+import cv2
+import matplotlib
+import numpy as np
+import torch
+
+matplotlib.use('agg')
 
 class Dataset(torch.utils.data.Dataset):
 
@@ -70,55 +29,8 @@ class Dataset(torch.utils.data.Dataset):
         self.normaliser = normaliser
         self.is_valid = is_valid
 
-
-        '''
-        data_dir_GT = '/mnt/proj3/xgxu/EDVR/datasets/indoor_resize/GT'
-        data_dir_input = '/mnt/proj3/xgxu/EDVR/datasets/indoor_resize/input'
-        # testing_dir = 'pair13,pair21,pair23,pair31,pair33,pair15'
-        testing_dir = 'pair13,pair31'
-        # testing_dir = 'pair21,pair23,pair15,pair33'
-        # testing_dir = 'pair21'
-        '''
-
-        # log_2020-12-24_10-34-14_overexpose
-        # dir_this_GT = '/mnt/proj23/rxwang/laiqu_overexpose_correct/overexpose_gt'
-        # dir_this_input = '/mnt/proj23/rxwang/laiqu_overexpose_correct/overexpose_input'
-
-        # log_2020-12-24_13-12-53
-        # dir_this_GT = '/mnt/proj23/rxwang/underexpose/gt'
-        # dir_this_input = '/mnt/proj23/rxwang/underexpose/input'
-
-        # log_2020-12-24_23-27-40
-        # dir_this_GT = '/mnt/proj23/rxwang/laiqu_outdoor_data/training/overexpose_gt'
-        # dir_this_input = '/mnt/proj23/rxwang/laiqu_outdoor_data/training/overexpose_input'
-
-        # log_2020-12-25_17-57-26
-        # dir_this_GT = '/mnt/proj23/rxwang/laiqu_outdoor_data/training/underexpose_gt'
-        # dir_this_input = '/mnt/proj23/rxwang/laiqu_outdoor_data/training/underexpose_input'
-
-        # log_2020-12-25_18-01-28
-        # dir_this_GT = '/mnt/proj23/rxwang/laiqu_indoor_data/gt_indoor'
-        # dir_this_input = '/mnt/proj23/rxwang/laiqu_indoor_data/input_indoor'
-
-        # log_2020-12-25_15-42-42
-        ## dir_this_GT = '/mnt/proj23/rxwang/new_UPEnet/outdoor_pair_downsample/gt'
-        ## dir_this_input = '/mnt/proj23/rxwang/new_UPEnet/outdoor_pair_downsample/input'
-
-
-
-        ## test
-        # dir_this_GT = '/mnt/proj23/rxwang/pg_results/train/overexpose_input'
-        # dir_this_input = '/mnt/proj23/rxwang/pg_results/train/overexpose_input'
-        # dir_this_GT = '/mnt/proj23/rxwang/pg_results/val/under'
-        # dir_this_input = '/mnt/proj23/rxwang/pg_results/val/under'
-        # dir_this_GT = '/mnt/proj23/rxwang/laiqu_indoor_data/gt_indoor'
-        # dir_this_input = '/mnt/proj23/rxwang/laiqu_indoor_data/input_indoor'
-
-        # dir_this_GT = '/mnt/proj23/rxwang/testing_1/9_jpg'
-        # dir_this_input = '/mnt/proj23/rxwang/testing_1/9_jpg'
-
-        dir_this_GT = '/mnt/proj23/rxwang/classification/5_jpg_under'
-        dir_this_input = '/mnt/proj23/rxwang/classification/5_jpg_under'
+        dir_this_GT = '/data1/why/deep_local_parametric_filters/data.down2/input'
+        dir_this_input = '/data1/why/deep_local_parametric_filters/data.down2/output'
 
         self.train_ids = []
 
@@ -131,9 +43,10 @@ class Dataset(torch.utils.data.Dataset):
         name_list_GT.sort()
         name_list_input.sort()
         assert len(name_list_GT) == len(name_list_input)
-        print(len(name_list_GT), 'length')
+        print('Dataset length: ', len(name_list_GT))
         for nn in range(len(name_list_GT)):
-            self.train_ids.append([os.path.join(dir_this_GT, name_list_GT[nn]), os.path.join(dir_this_input, name_list_input[nn])])
+            self.train_ids.append([os.path.join(dir_this_GT, name_list_GT[nn]), os.path.join(
+                dir_this_input, name_list_input[nn])])
 
     def __len__(self):
         """Returns the number of images in the dataset
@@ -155,18 +68,8 @@ class Dataset(torch.utils.data.Dataset):
 
         """
 
-
-        '''
-        output_img = util.ImageProcessing.load_image(
-            self.train_ids[idx][0], normaliser=1)
-        input_img = util.ImageProcessing.load_image(
-            self.train_ids[idx][1], normaliser=1)
-        '''
-
-
-        output_img = cv2.imread(self.train_ids[idx][0])[:, :, [2,1,0]]
+        output_img = cv2.imread(self.train_ids[idx][0])[:, :, [2, 1, 0]]
         input_img = cv2.imread(self.train_ids[idx][1])[:, :, [2, 1, 0]]
-
 
         height = output_img.shape[0]
         width = output_img.shape[1]
@@ -174,27 +77,9 @@ class Dataset(torch.utils.data.Dataset):
         output_img = cv2.resize(output_img, (width*2//3, height*2//3))
         input_img = cv2.resize(input_img, (width*2//3, height*2//3))
 
-
-
-        '''
-        height_this = 960
-        width_this = 960
-        rnd_h = random.randint(0, max(0, height-height_this))
-        rnd_w = random.randint(0, max(0, width-width_this))
-        output_img = output_img[rnd_h:rnd_h + height_this, rnd_w:rnd_w + width_this, :]
-        input_img = input_img[rnd_h:rnd_h + height_this, rnd_w:rnd_w + width_this, :]
-        '''
-
         # print(np.mean(output_img))
         input_img = input_img.astype(np.uint8)
         output_img = output_img.astype(np.uint8)
-
-        '''
-        if output_img.shape[2] == 4:
-            output_img = np.delete(output_img, 3, -1)
-        if input_img.shape[2] == 4:
-            input_img = np.delete(input_img, 3, -1)
-        '''
 
         seed = random.randint(0, 100000)
         random.seed(seed)
@@ -302,7 +187,7 @@ class Adobe5kDataLoader(DataLoader):
                         idx_tmp = img_id_to_idx_dict[img_id]
 
                     if "input" in root:  # change this to the name of your
-                                        # input data folder
+                        # input data folder
 
                         input_img_filepath = file
 
@@ -310,7 +195,7 @@ class Adobe5kDataLoader(DataLoader):
                             "/" + input_img_filepath
 
                     elif ("output" in root):  # change this to the name of your
-                                             # output data folder
+                        # output data folder
 
                         output_img_filepath = file
 

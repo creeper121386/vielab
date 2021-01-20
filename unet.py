@@ -1,23 +1,12 @@
 # -*- coding: utf-8 -*-
-'''
-This is a PyTorch implementation of the CVPR 2020 paper:
-"Deep Local Parametric Filters for Image Enhancement": https://arxiv.org/abs/2003.13985
+from math import sqrt
 
-Please cite the paper if you use this code
-
-Tested with Pytorch 0.3.1, Python 3.5
-
-Authors: Sean Moran (sean.j.moran@gmail.com), 
-         Pierre Marza (pierre.marza@gmail.com)
-
-'''
 import numpy as np
 import torch
 import torch.nn as nn
-from math import sqrt
-from torch.nn import init
-from torch.autograd import Variable
 import torch.nn.functional as F
+from torch.autograd import Variable
+from torch.nn import init
 
 
 class UNet(nn.Module):
