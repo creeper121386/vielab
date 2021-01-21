@@ -17,8 +17,27 @@ from matplotlib.image import imread, imsave
 import torch
 import numpy as np
 import matplotlib
+import yaml
+from globalenv import necessaryFields
 
 matplotlib.use('agg')
+
+
+def parseConfig(ymlpath):
+    '''
+    input config file path (yml file), return config dict.
+    '''
+    print(f'* Reading config from: {ymlpath}')
+    yml = yaml.load(open(ymlpath, 'r').read())
+
+    # make sure the format is valid:
+    for x in necessaryFields:
+        try:
+            assert x in yml
+        except:
+            print('Field missing:', x)
+
+    return yml
 
 
 class ImageProcessing(object):

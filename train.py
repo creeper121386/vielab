@@ -3,14 +3,15 @@ import argparse
 import datetime
 import logging
 import os
-import os.path
-import time
+import os.path as osp
 from rich.console import Console
+from globalenv import *
 
 import cv2
 import matplotlib
 import numpy as np
 import torch
+from util import parseConfig
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -22,60 +23,62 @@ matplotlib.use('agg')
 console = Console()
 # np.set_printoptions(threshold=np.nan)
 
+def get_transform(opt):
+    tconfig = opt[TRANSFORMS]
+
+    tlist = [transforms.ToPILImage(),]
+    if tconfig[HORIZON_FLIP]:
+        tlist.append(transforms.RandomHorizontalFlip())
+
+    elif tconfig[VERTICAL_FLIP]:
+        tlist.append(transforms.RandomVerticalFlip())
+
+
+    tlist.append(transforms.ToTensor())
+    return transforms.Compose(tlist)
+
 
 def main():
+    # ─── PARSE CONFIG ───────────────────────────────────────────────────────────────
+    parser = argparse.ArgumentParser(
+        description="Train the DeepLPF neural network on image pairs")
+    parser.add_argument(
+        "--configpath", '-c', required=True, help="yml config file path")
+    args = parser.parse_args()
+    opt = parseConfig(args.configpath)
+    opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
+
+    num_epoch = opt[NUM_EPOCH]
+    valid_every = opt[VALID_EVERY]
+    checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
+    save_every = opt[SAVE_MODEL_EVERY]
+
+    torch.cuda.set_device(opt[GPU])
+    console.log('Current cuda device:', torch.cuda.current_device())
+
+    del parser, args
+    console.log('Paramters:', opt, log_locals=False)
+
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_dirpath = "./log_" + timestamp
-    os.mkdir(log_dirpath)
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M')
+    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + timestamp
+    os.makedirs(log_dirpath)
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
     del timestamp, handlers
-    # ───  ───────────────────────────────────────────────────────────────────────────
 
-    parser = argparse.ArgumentParser(
-        description="Train the DeepLPF neural network on image pairs")
-    parser.add_argument(
-        "--num_epoch", type=int, required=False, help="Number of epoches (default 5000)", default=100000)
-    parser.add_argument(
-        "--gpu", type=int, required=False, help="which gpu to use.", default=0)
-    parser.add_argument(
-        "--valid_every", type=int, required=False, help="Number of epoches after which to compute validation accuracy",
-        default=500)
-    parser.add_argument(
-        "--save_every", type=int, required=False, help="Number of epoches after which to save the model.",
-        default=1)
-    parser.add_argument(
-        "--checkpoint_filepath", required=False, help="Location of checkpoint file to continue train", default=None)
-    # parser.add_argument(
-    #     "--GT_dirpath", required=True,
-    #     help="Directory containing ground truth images for training.")
-    # parser.add_argument(
-    #     "--input_dirpath", required=True,
-    #     help="Directory containing input images for training")
-    args = parser.parse_args()
-    num_epoch = args.num_epoch
-    valid_every = args.valid_every
-    checkpoint_filepath = args.checkpoint_filepath
-    save_every = args.save_every
+    # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
+    transform = get_transform(opt)
 
-    torch.cuda.set_device(args.gpu)
-    console.log('Current cuda device:', torch.cuda.current_device())
-    del parser, args
-    console.log('Paramters:', log_locals=True)
-
-    training_dataset = Dataset(data_dict=None, transform=transforms.Compose(
-        [transforms.ToPILImage(), transforms.RandomHorizontalFlip(), transforms.RandomVerticalFlip(),
-         transforms.ToTensor()]),
+    training_dataset = Dataset(opt, data_dict=None, transform=transform,
         normaliser=2 ** 8 - 1, is_valid=False)
 
     training_data_loader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
                                                        num_workers=4)
-
     net = model.DeepLPFNet()
-    start_epoch = 1
+    start_epoch = 0
 
     # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
     # logging.info('######### Network created #########')
@@ -103,12 +106,12 @@ def main():
     batch_size = 1
     net.cuda()
 
-    if (checkpoint_filepath is not None):
+    if checkpoint_filepath:
         para = torch.load(checkpoint_filepath,
                           map_location=lambda storage, location: storage)
         net.load_state_dict(para)
 
-        base_name = os.path.basename(checkpoint_filepath)
+        base_name = osp.basename(checkpoint_filepath)
         start_epoch = base_name.split('_')[-1]
         start_epoch = start_epoch.split('.pth')[0]
         start_epoch = int(start_epoch)
@@ -154,11 +157,11 @@ def main():
                          (epoch + 1, running_loss / examples))
 
         if count % save_every == 0:
-            snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
+            snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')
             snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
             torch.save(net.state_dict(), snapshot_path)
 
-    snapshot_prefix = os.path.join(log_dirpath, 'deep_lpf')
+    snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')
     snapshot_path = snapshot_prefix + "_" + str(num_epoch)
     torch.save(net.state_dict(), snapshot_path)
 

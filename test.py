@@ -80,43 +80,36 @@ def calculate_ssim(img1, img2):
 
 
 def main():
-
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_dirpath = "./log_" + timestamp
-    os.mkdir(log_dirpath)
+    # ─── LOGGING ────────────────────────────────────────────────────────────────────
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M')
+    log_dirpath = "./test_log/" + timestamp
+    os.makedirs(log_dirpath)
 
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
 
+    # ─── PARSE CONFIG ───────────────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
         description="Train the DeepLPF neural network on image pairs")
-
     parser.add_argument(
-        "--num_epoch", type=int, required=False, help="Number of epoches (default 5000)", default=100000)
+        "--checkpoint_filepath", '-m', required=True, help="Location of checkpoint file")
     parser.add_argument(
-        "--valid_every", type=int, required=False, help="Number of epoches after which to compute validation accuracy",
-        default=500)
+        "--GT_dirpath", '-g', required=True, help="GT dir path")
     parser.add_argument(
-        "--checkpoint_filepath", '-c', required=True, help="Location of checkpoint file")
+        "--input_dirpath", '-i', required=True, help="input dir path")
 
     args = parser.parse_args()
-    num_epoch = args.num_epoch
-    valid_every = args.valid_every
     checkpoint_filepath = args.checkpoint_filepath
+    opt = args.__dict__
 
-    logging.info('######### Parameters #########')
-    logging.info('Number of epochs: ' + str(num_epoch))
-    logging.info('Logging directory: ' + str(log_dirpath))
-    logging.info('Dump validation accuracy every: ' + str(valid_every))
-    logging.info('##############################')
-
-    training_dataset = Dataset(data_dict=None, transform=transforms.Compose(
+    # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
+    d = Dataset(opt, data_dict=None, transform=transforms.Compose(
         [transforms.ToPILImage(), transforms.ToTensor()]),
         normaliser=2 ** 8 - 1, is_valid=False)
 
-    training_data_loader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=False,
+    dataloader = torch.utils.data.DataLoader(d, batch_size=1, shuffle=False,
                                                        num_workers=4)
 
     net = model.DeepLPFNet()
@@ -126,7 +119,7 @@ def main():
     net.load_state_dict(para)
     net.eval()
 
-    # ───  ───────────────────────────────────────────────────────────────────────────
+    # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
     # logging.info('######### Network created #########')
     # logging.info('Architecture:\n' + str(net))
     # for name, param in net.named_parameters():
@@ -141,7 +134,7 @@ def main():
     psnr_count = 0
     ssim_all = 0
     ssim_count = 0
-    for batch_num, data in enumerate(training_data_loader, 0):
+    for batch_num, data in enumerate(dataloader, 0):
         '''
         psnr_count += 1
         if psnr_count <= 201:

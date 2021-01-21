@@ -1,0 +1,9 @@
+num_epoch: 1000
+gpu: 0
+valid_every: 10
+save_model_every: 1
+checkpoint_filepath: false    # false for no checkpoint
+
+GT_dirpath: /data1/rxwang/laiqu_indoor_data/gt_indoor
+input_dirpath: /data1/rxwang/laiqu_indoor_data/input_indoor
+

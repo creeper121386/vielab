@@ -1,0 +1,14 @@
+num_epoch: 1000
+gpu: 0
+valid_every: 10
+save_model_every: 1
+checkpoint_filepath: false # false for no checkpoint
+
+GT_dirpath: "/data1/why/deep_local_parametric_filters/data_eval/output"
+input_dirpath: "/data1/why/deep_local_parametric_filters/data_eval/input"
+
+transforms:
+  crop: true
+  resize: true
+  horizon_flip: true
+  vertical_flip: true

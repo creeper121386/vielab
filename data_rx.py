@@ -2,6 +2,7 @@
 import logging
 import os
 from rich.console import Console
+from globalenv import *
 
 import os.path
 import random
@@ -16,9 +17,10 @@ import torch
 matplotlib.use('agg')
 console = Console()
 
+
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, data_dict, transform=None, normaliser=2 ** 8 - 1, is_valid=False):
+    def __init__(self, opt, data_dict, transform=None, normaliser=2 ** 8 - 1, is_valid=False):
         """Initialisation for the Dataset object
 
         :param data_dict: dictionary of dictionaries containing images
@@ -31,9 +33,10 @@ class Dataset(torch.utils.data.Dataset):
         self.data_dict = data_dict
         self.normaliser = normaliser
         self.is_valid = is_valid
+        self.opt = opt
 
-        dir_this_GT = '/data1/why/deep_local_parametric_filters/data_eval/output'
-        dir_this_input = '/data1/why/deep_local_parametric_filters/data_eval/input'
+        dir_this_GT = opt[GT_DIRPATH]
+        dir_this_input = opt[INPUT_DIRPATH]
 
         console.log(f'GT Directory path: [red]{dir_this_GT}[/red]')
         console.log(f'Input Directory path: [red]{dir_this_input}[/red]')
@@ -63,6 +66,28 @@ class Dataset(torch.utils.data.Dataset):
         """
         return (len(self.train_ids))
 
+    def applyTransformForOneImg(self, img, seed):
+        height = img.shape[0]
+        width = img.shape[1]
+
+        # ─── APPLY CUSTOM TRANSFORM ──────────────────────────────────────
+
+        # crop the image:
+        if self.opt[TRANSFORMS][CROP]:
+            pass
+
+        # resize the image:
+        elif self.opt[TRANSFORMS][RESIZE]:
+            img = cv2.resize(img, (width*2//3, height*2//3))
+
+        img = img.astype(np.uint8)
+        random.seed(seed)
+
+        # ─── APPLY PYTORCH TRANSFORM: ────────────────────────────────────
+        img = self.transform(img)
+
+        return img
+
     def __getitem__(self, idx):
         """Returns a pair of images with the given identifier. This is lazy loading
         of data into memory. Only those image pairs needed for the current batch
@@ -77,21 +102,9 @@ class Dataset(torch.utils.data.Dataset):
         output_img = cv2.imread(self.train_ids[idx][0])[:, :, [2, 1, 0]]
         input_img = cv2.imread(self.train_ids[idx][1])[:, :, [2, 1, 0]]
 
-        height = output_img.shape[0]
-        width = output_img.shape[1]
-        # print(height, width)
-        output_img = cv2.resize(output_img, (width*2//3, height*2//3))
-        input_img = cv2.resize(input_img, (width*2//3, height*2//3))
-
-        # print(np.mean(output_img))
-        input_img = input_img.astype(np.uint8)
-        output_img = output_img.astype(np.uint8)
-
         seed = random.randint(0, 100000)
-        random.seed(seed)
-        input_img = self.transform(input_img)
-        random.seed(seed)
-        output_img = self.transform(output_img)
+        input_img = self.applyTransformForOneImg(input_img)
+        output_img = self.applyTransformForOneImg(output_img)
 
         return {'input_img': input_img, 'output_img': output_img,
                 'name': self.train_ids[idx][1]}
