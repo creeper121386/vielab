@@ -58,18 +58,19 @@ def main():
 
     del parser, args
     console.log('Paramters:', opt, log_locals=False)
-    for k, v in opt.items():
-        logging.info(f'### Param - {k}: {v}')
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    timestamp = datetime.datetime.now().strftime(TIME_FORMAT)
-    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + timestamp
+    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + datetime.datetime.now().strftime(TIME_FORMAT)
     os.makedirs(log_dirpath)
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-    del timestamp, handlers
+    del handlers
+    
+    for k, v in opt.items():
+        logging.info(f'### Param - {k}: {v}')
+
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     transform = get_transform(opt)
@@ -119,7 +120,7 @@ def main():
         start_epoch = int(start_epoch)
 
     console.log('Epoch start from:', start_epoch)
-    count = 0
+    iternum = 0
     for epoch in range(start_epoch, num_epoch, 1):
 
         # Train loss
@@ -142,7 +143,7 @@ def main():
             output = torch.clamp(
                 output, 0.0, 1.0)
 
-            if count % 500 == 0:
+            if iternum % 500 == 0:
                 saveTensorAsImg(output, 'test2.jpg')
 
             loss = criterion(output, gt_batch)
@@ -154,11 +155,13 @@ def main():
             running_loss += loss.data[0]
             examples += batch_size
 
-            count += 1
-            logging.info('[%d] train loss: %.15f' %
-                         (epoch + 1, running_loss / examples))
+            iternum += 1
 
-        if count % save_every == 0:
+            if iternum % 100 == 0:
+                logging.info('[%d] iter: %d, train loss: %.10f' %
+                         (epoch + 1, iternum, running_loss / examples))
+
+        if epoch % save_every == 0:
             snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')
             snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
             torch.save(net.state_dict(), snapshot_path)
