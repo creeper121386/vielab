@@ -1,12 +1,12 @@
-expname: indoor-crop512
+expname: outdoor-underexposure-crop512
 num_epoch: 1000
 gpu: 1
 valid_every: 10
 save_model_every: 1
 checkpoint_filepath: false # false for no checkpoint
 
-GT_dirpath: /data1/rxwang/laiqu_indoor_data/gt_indoor
-input_dirpath: /data1/rxwang/laiqu_indoor_data/input_indoor
+GT_dirpath: '/data1/rxwang/outdoor/underexpose_gt'
+input_dirpath: '/data1/rxwang/outdoor/underexpose_input'
 
 transforms:
   crop: 512 # crop size, false for not cropping.

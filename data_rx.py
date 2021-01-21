@@ -71,20 +71,33 @@ class Dataset(torch.utils.data.Dataset):
         width = img.shape[1]
 
         # ─── APPLY CUSTOM TRANSFORM ──────────────────────────────────────
+        cropFactor = self.opt[TRANSFORMS][CROP]
+        resizeFactor = self.opt[TRANSFORMS][RESIZE]
 
         # crop the image:
-        if self.opt[TRANSFORMS][CROP]:
-            pass
+        if cropFactor:
+            random.seed(seed)
+            assert type(cropFactor) == int
+
+            rnd_h = random.randint(0, max(0, height-cropFactor))
+            rnd_w = random.randint(0, max(0, width-cropFactor))
+            img = img[rnd_h:rnd_h + cropFactor,
+                      rnd_w:rnd_w + cropFactor, :]
 
         # resize the image:
-        elif self.opt[TRANSFORMS][RESIZE]:
-            img = cv2.resize(img, (width*2//3, height*2//3))
+        elif resizeFactor:
+            assert type(resizeFactor) == float
+
+            img = cv2.resize(img, (int(width / resizeFactor),
+                                   int(height / resizeFactor)))
 
         img = img.astype(np.uint8)
-        random.seed(seed)
 
         # ─── APPLY PYTORCH TRANSFORM: ────────────────────────────────────
+        random.seed(seed)
         img = self.transform(img)
+
+        # console.log('', log_locals=True)
 
         return img
 
@@ -103,8 +116,8 @@ class Dataset(torch.utils.data.Dataset):
         input_img = cv2.imread(self.train_ids[idx][1])[:, :, [2, 1, 0]]
 
         seed = random.randint(0, 100000)
-        input_img = self.applyTransformForOneImg(input_img)
-        output_img = self.applyTransformForOneImg(output_img)
+        input_img = self.applyTransformForOneImg(input_img, seed)
+        output_img = self.applyTransformForOneImg(output_img, seed)
 
         return {'input_img': input_img, 'output_img': output_img,
                 'name': self.train_ids[idx][1]}

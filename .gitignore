@@ -1,4 +1,5 @@
 .idea
+debug/
 *cache*
 *log*
 .DS_Store

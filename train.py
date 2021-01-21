@@ -11,7 +11,7 @@ import cv2
 import matplotlib
 import numpy as np
 import torch
-from util import parseConfig
+from util import parseConfig, saveTensorAsImg
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -23,16 +23,16 @@ matplotlib.use('agg')
 console = Console()
 # np.set_printoptions(threshold=np.nan)
 
+
 def get_transform(opt):
     tconfig = opt[TRANSFORMS]
 
-    tlist = [transforms.ToPILImage(),]
+    tlist = [transforms.ToPILImage(), ]
     if tconfig[HORIZON_FLIP]:
         tlist.append(transforms.RandomHorizontalFlip())
 
     elif tconfig[VERTICAL_FLIP]:
         tlist.append(transforms.RandomVerticalFlip())
-
 
     tlist.append(transforms.ToTensor())
     return transforms.Compose(tlist)
@@ -46,7 +46,7 @@ def main():
         "--configpath", '-c', required=True, help="yml config file path")
     args = parser.parse_args()
     opt = parseConfig(args.configpath)
-    opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
+    # opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
 
     num_epoch = opt[NUM_EPOCH]
     valid_every = opt[VALID_EVERY]
@@ -58,9 +58,11 @@ def main():
 
     del parser, args
     console.log('Paramters:', opt, log_locals=False)
+    for k, v in opt.items():
+        logging.info(f'### Param - {k}: {v}')
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M')
+    timestamp = datetime.datetime.now().strftime(TIME_FORMAT)
     log_dirpath = f"./train_log/{opt[EXPNAME]}_" + timestamp
     os.makedirs(log_dirpath)
     handlers = [logging.FileHandler(
@@ -73,7 +75,7 @@ def main():
     transform = get_transform(opt)
 
     training_dataset = Dataset(opt, data_dict=None, transform=transform,
-        normaliser=2 ** 8 - 1, is_valid=False)
+                               normaliser=2 ** 8 - 1, is_valid=False)
 
     training_data_loader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
                                                        num_workers=4)
@@ -125,10 +127,15 @@ def main():
         running_loss = 0.0
 
         for batch_num, data in enumerate(training_data_loader, 0):
-
             input_batch, gt_batch, category = Variable(data['input_img'], requires_grad=False).cuda(), \
                 Variable(data['output_img'],
                          requires_grad=False).cuda(), data['name']
+
+            saveTensorAsImg(input_batch, 'debug/i.png')
+            saveTensorAsImg(gt_batch, 'debug/o.png')
+
+            # import ipdb
+            # ipdb.set_trace()
 
             output = net(input_batch)
             # import ipdb; ipdb.set_trace()
@@ -136,12 +143,7 @@ def main():
                 output, 0.0, 1.0)
 
             if count % 500 == 0:
-                output_image11 = output[0, :, :, :]
-                output_image11 = output_image11.permute(1, 2, 0)
-                output_image11 = output_image11.clone().detach().cpu().numpy()
-                output_image11 = output_image11 * 255.0
-                output_image11 = output_image11[:, :, [2, 1, 0]]
-                cv2.imwrite('test2.jpg', output_image11.astype(np.uint8))
+                saveTensorAsImg(output, 'test2.jpg')
 
             loss = criterion(output, gt_batch)
 

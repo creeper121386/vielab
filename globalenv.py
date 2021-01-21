@@ -15,6 +15,7 @@ CROP = 'crop'
 HORIZON_FLIP = 'horizon_flip'
 VERTICAL_FLIP = 'vertical_flip'
 EXPNAME = 'expname'
+TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 
 
 necessaryFields = [

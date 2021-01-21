@@ -16,11 +16,28 @@ from skimage.measure import compare_ssim as ssim
 from matplotlib.image import imread, imsave
 import torch
 import numpy as np
+import os
+import cv2
 import matplotlib
 import yaml
 from globalenv import necessaryFields
 
 matplotlib.use('agg')
+
+
+def saveTensorAsImg(output, path, resize=False):
+    outImg = output[0].permute(
+        1, 2, 0).clone().detach().cpu().numpy() * 255.0
+    outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
+
+    if resize:
+        assert type(resize) == float
+
+        h = outImg.shape[0]
+        w = outImg.shape[1]
+        outImg = cv2.resize(outImg, (int(w / resize), int(h / resize)))
+
+    cv2.imwrite(path, outImg.astype(np.uint8))
 
 
 def parseConfig(ymlpath):

@@ -15,10 +15,11 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from util import ImageProcessing
+from util import ImageProcessing, saveTensorAsImg
 
 import model
 from data_rx import Adobe5kDataLoader, Dataset
+from globalenv import *
 
 matplotlib.use('agg')
 console = Console()
@@ -81,7 +82,7 @@ def calculate_ssim(img1, img2):
 
 def main():
     # ─── LOGGING ────────────────────────────────────────────────────────────────────
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M')
+    timestamp = datetime.datetime.now().strftime(TIME_FORMAT)
     log_dirpath = "./test_log/" + timestamp
     os.makedirs(log_dirpath)
 
@@ -145,29 +146,19 @@ def main():
             data['name']
 
         path_split = category[0].split('/')
-        # path_id = path_split[-2] + '_' + path_split[-1]
         path_id = path_split[-1].split('.jpg')[0]
 
-        start_time = time.time()
         with torch.no_grad():
             output = net(x)
             output = torch.clamp(output, 0.0, 1.0)
 
-        outImg = output[0].permute(
-            1, 2, 0).clone().detach().cpu().numpy() * 255.0
-        outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
         result_dir = "results/"
         if not(os.path.exists(result_dir)):
             os.mkdir(result_dir)
+        saveTensorAsImg(output, os.path.join(result_dir, path_id + '.jpg'))
 
-        h = outImg.shape[0]
-        w = outImg.shape[1]
-        outImg = cv2.resize(outImg, (w*3//2, h*3//2))
 
-        cv2.imwrite(os.path.join(result_dir, path_id + '.jpg'),
-                    outImg.astype(np.uint8))
-
-        # import ipdb; ipdb.set_trace()
+        # ─── CALCULATE METRICS ───────────────────────────────────────────
         output_ = output.clone().detach().cpu().numpy()
         y_ = y.clone().detach().cpu().numpy()
 
