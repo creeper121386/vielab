@@ -8,7 +8,6 @@ import os
 import os.path
 import time
 
-
 import cv2
 import matplotlib
 import numpy as np
@@ -18,7 +17,7 @@ from torch.autograd import Variable
 from util import ImageProcessing, saveTensorAsImg
 
 import model
-from data_rx import Adobe5kDataLoader, Dataset
+from data import Adobe5kDataLoader, Dataset
 from globalenv import *
 
 matplotlib.use('agg')
@@ -104,6 +103,12 @@ def main():
     args = parser.parse_args()
     checkpoint_filepath = args.checkpoint_filepath
     opt = args.__dict__
+    opt[TRANSFORMS] = {
+        CROP: False,
+        RESIZE: False,
+        VERTICAL_FLIP: False,
+        HORIZON_FLIP: False,
+    }
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     d = Dataset(opt, data_dict=None, transform=transforms.Compose(
@@ -119,14 +124,6 @@ def main():
     # switch model to evaluation mode
     net.load_state_dict(para)
     net.eval()
-
-    # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
-    # logging.info('######### Network created #########')
-    # logging.info('Architecture:\n' + str(net))
-    # for name, param in net.named_parameters():
-    #     if param.requires_grad:
-    #         print(name)
-    # ───  ───────────────────────────────────────────────────────────────────────────
 
     net.cuda()
 
@@ -152,10 +149,7 @@ def main():
             output = net(x)
             output = torch.clamp(output, 0.0, 1.0)
 
-        result_dir = "results/"
-        if not(os.path.exists(result_dir)):
-            os.mkdir(result_dir)
-        saveTensorAsImg(output, os.path.join(result_dir, path_id + '.jpg'))
+        saveTensorAsImg(output, os.path.join(log_dirpath, path_id + '.jpg'))
 
 
         # ─── CALCULATE METRICS ───────────────────────────────────────────

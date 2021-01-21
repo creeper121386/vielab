@@ -17,7 +17,7 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 
 import model
-from data_rx import Dataset
+from data import Dataset
 
 matplotlib.use('agg')
 console = Console()
@@ -52,6 +52,7 @@ def main():
     valid_every = opt[VALID_EVERY]
     checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
     save_every = opt[SAVE_MODEL_EVERY]
+    log_every = opt[LOG_EVERY]
 
     torch.cuda.set_device(opt[GPU])
     console.log('Current cuda device:', torch.cuda.current_device())
@@ -60,17 +61,19 @@ def main():
     console.log('Paramters:', opt, log_locals=False)
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + datetime.datetime.now().strftime(TIME_FORMAT)
+    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + \
+        datetime.now().strftime(TIME_FORMAT)
     os.makedirs(log_dirpath)
+    img_dirpath = osp.join(log_dirpath, 'images')
+    os.makedirs(img_dirpath)
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
     del handlers
-    
+
     for k, v in opt.items():
         logging.info(f'### Param - {k}: {v}')
-
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     transform = get_transform(opt)
@@ -78,8 +81,8 @@ def main():
     training_dataset = Dataset(opt, data_dict=None, transform=transform,
                                normaliser=2 ** 8 - 1, is_valid=False)
 
-    training_data_loader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
-                                                       num_workers=4)
+    trainloader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
+                                              num_workers=4)
     net = model.DeepLPFNet()
     start_epoch = 0
 
@@ -96,6 +99,7 @@ def main():
     console.log('Model initialization finished.')
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters(
     )), lr=1e-4, betas=(0.9, 0.999), eps=1e-08)
+
     best_valid_psnr = 0.0
 
     alpha = 0.0
@@ -127,7 +131,7 @@ def main():
         examples = 0.0
         running_loss = 0.0
 
-        for batch_num, data in enumerate(training_data_loader, 0):
+        for batch_num, data in enumerate(trainloader, 0):
             input_batch, gt_batch, category = Variable(data['input_img'], requires_grad=False).cuda(), \
                 Variable(data['output_img'],
                          requires_grad=False).cuda(), data['name']
@@ -144,7 +148,8 @@ def main():
                 output, 0.0, 1.0)
 
             if iternum % 500 == 0:
-                saveTensorAsImg(output, 'test2.jpg')
+                saveTensorAsImg(output, osp.join(
+                    img_dirpath, f'epoch{epoch}_iter{iternum}.png'))
 
             loss = criterion(output, gt_batch)
 
@@ -157,9 +162,9 @@ def main():
 
             iternum += 1
 
-            if iternum % 100 == 0:
+            if iternum % log_every == 0:
                 logging.info('[%d] iter: %d, train loss: %.10f' %
-                         (epoch + 1, iternum, running_loss / examples))
+                             (epoch + 1, iternum, running_loss / examples))
 
         if epoch % save_every == 0:
             snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')

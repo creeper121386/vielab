@@ -2,6 +2,7 @@ expname: outdoor-overexposure-crop512
 num_epoch: 1000
 gpu: 2
 valid_every: 10
+log_every: 100
 save_model_every: 1
 checkpoint_filepath: false # false for no checkpoint
 

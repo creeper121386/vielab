@@ -1,10 +1,19 @@
 import os
 import os.path as osp
+import shutil
 
-logdir = 'train_log'
-for dirname in os.listdir():
-    dirpath = osp.join(logdir, dirname)
 
-    if len(os.listdir(dirpath)) < 2:
-        print('clean:', dirpath)
-        os.removedirs(dirpath)
+def clean(logdir):
+    for dirname in os.listdir(logdir):
+        dirpath = osp.join(logdir, dirname)
+
+        if not osp.isdir(dirpath):
+            continue
+
+        if len(os.listdir(dirpath)) < 2:
+            print('clean:', dirpath)
+            shutil.rmtree(dirpath)
+
+
+clean('train_log')
+clean('test_log')
