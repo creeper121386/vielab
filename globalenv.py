@@ -1,5 +1,5 @@
 '''
-Put read-only global varibles here.
+Put read-only global variables here.
 '''
 
 NUM_EPOCH = 'num_epoch'
@@ -19,13 +19,22 @@ EXPNAME = 'expname'
 TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 
 
-necessaryFields = [
+trainNecessaryFields = [
     EXPNAME,
     NUM_EPOCH,
     GPU,
     VALID_EVERY,
     LOG_EVERY,
     SAVE_MODEL_EVERY,
+    CHECKPOINT_FILEPATH,
+    GT_DIRPATH,
+    INPUT_DIRPATH,
+    TRANSFORMS
+]
+
+testNecessaryFields = [
+    EXPNAME,
+    GPU,
     CHECKPOINT_FILEPATH,
     GT_DIRPATH,
     INPUT_DIRPATH,

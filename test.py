@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from util import ImageProcessing, saveTensorAsImg
+from util import ImageProcessing, saveTensorAsImg, parseConfig, configLogging
 
 import model
 from data import Adobe5kDataLoader, Dataset
@@ -80,43 +80,30 @@ def calculate_ssim(img1, img2):
 
 
 def main():
-    # ─── LOGGING ────────────────────────────────────────────────────────────────────
-    timestamp = datetime.datetime.now().strftime(TIME_FORMAT)
-    log_dirpath = "./test_log/" + timestamp
-    os.makedirs(log_dirpath)
-
-    handlers = [logging.FileHandler(
-        log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
-    logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-
     # ─── PARSE CONFIG ───────────────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
         description="Train the DeepLPF neural network on image pairs")
     parser.add_argument(
-        "--checkpoint_filepath", '-m', required=True, help="Location of checkpoint file")
-    parser.add_argument(
-        "--GT_dirpath", '-g', required=True, help="GT dir path")
-    parser.add_argument(
-        "--input_dirpath", '-i', required=True, help="input dir path")
-
+        "--configpath", '-c', required=True, help="yml config file path")
     args = parser.parse_args()
-    checkpoint_filepath = args.checkpoint_filepath
-    opt = args.__dict__
-    opt[TRANSFORMS] = {
-        CROP: False,
-        RESIZE: False,
-        VERTICAL_FLIP: False,
-        HORIZON_FLIP: False,
-    }
+    opt = parseConfig(args.configpath, 'test')
+
+    checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
+
+    torch.cuda.set_device(opt[GPU])
+    console.log('Current cuda device:', torch.cuda.current_device())
+    del parser, args
+
+    # ─── LOGGING ────────────────────────────────────────────────────────────────────
+    log_dirpath, img_dirpath = configLogging('train', opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
-    d = Dataset(opt, data_dict=None, transform=transforms.Compose(
+    testdata = Dataset(opt, data_dict=None, transform=transforms.Compose(
         [transforms.ToPILImage(), transforms.ToTensor()]),
         normaliser=2 ** 8 - 1, is_valid=False)
 
-    dataloader = torch.utils.data.DataLoader(d, batch_size=1, shuffle=False,
-                                                       num_workers=4)
+    dataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False,
+                                             num_workers=4)
 
     net = model.DeepLPFNet()
     para = torch.load(checkpoint_filepath,
@@ -124,20 +111,16 @@ def main():
     # switch model to evaluation mode
     net.load_state_dict(para)
     net.eval()
-
     net.cuda()
 
-    count = 0
-    psnr_all = 0
-    psnr_count = 0
-    ssim_all = 0
-    ssim_count = 0
+    psnr_all = psnr_count = ssim_all = ssim_count = 0
     for batch_num, data in enumerate(dataloader, 0):
         '''
         psnr_count += 1
         if psnr_count <= 201:
             continue
         '''
+
         x, y, category = Variable(data['input_img'], requires_grad=False).cuda(), \
             Variable(data['output_img'], requires_grad=False).cuda(), \
             data['name']
@@ -149,8 +132,7 @@ def main():
             output = net(x)
             output = torch.clamp(output, 0.0, 1.0)
 
-        saveTensorAsImg(output, os.path.join(log_dirpath, path_id + '.jpg'))
-
+        saveTensorAsImg(output, os.path.join(img_dirpath, path_id + '.jpg'))
 
         # ─── CALCULATE METRICS ───────────────────────────────────────────
         output_ = output.clone().detach().cpu().numpy()

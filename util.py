@@ -17,12 +17,33 @@ from matplotlib.image import imread, imsave
 import torch
 import numpy as np
 import os
+import os.path as osp
 import cv2
 import matplotlib
 import yaml
-from globalenv import necessaryFields
+import logging
+import datetime
+from globalenv import *
 
 matplotlib.use('agg')
+
+def configLogging(mode, opt):
+    log_dirpath = f"./{mode}_log/{opt[EXPNAME]}_" + \
+        datetime.datetime.now().strftime(TIME_FORMAT)
+
+    os.makedirs(log_dirpath)
+    img_dirpath = osp.join(log_dirpath, 'images')
+    os.makedirs(img_dirpath)
+
+    handlers = [logging.FileHandler(
+        log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
+    logging.basicConfig(
+        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
+
+    for k, v in opt.items():
+        logging.info(f'### Param - {k}: {v}')
+
+    return log_dirpath, img_dirpath
 
 
 def saveTensorAsImg(output, path, resize=False):
@@ -40,12 +61,19 @@ def saveTensorAsImg(output, path, resize=False):
     cv2.imwrite(path, outImg.astype(np.uint8))
 
 
-def parseConfig(ymlpath):
+def parseConfig(ymlpath, mode):
     '''
     input config file path (yml file), return config dict.
     '''
     print(f'* Reading config from: {ymlpath}')
     yml = yaml.load(open(ymlpath, 'r').read())
+
+    if mode == 'train':
+        necessaryFields = trainNecessaryFields
+    elif mode == 'test':
+        necessaryFields = testNecessaryFields
+    else:
+        raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
 
     # make sure the format is valid:
     for x in necessaryFields:

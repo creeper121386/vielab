@@ -11,7 +11,7 @@ import cv2
 import matplotlib
 import numpy as np
 import torch
-from util import parseConfig, saveTensorAsImg
+from util import parseConfig, saveTensorAsImg, configLogging
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -45,7 +45,7 @@ def main():
     parser.add_argument(
         "--configpath", '-c', required=True, help="yml config file path")
     args = parser.parse_args()
-    opt = parseConfig(args.configpath)
+    opt = parseConfig(args.configpath, 'train')
     # opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
 
     num_epoch = opt[NUM_EPOCH]
@@ -61,19 +61,7 @@ def main():
     console.log('Paramters:', opt, log_locals=False)
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    log_dirpath = f"./train_log/{opt[EXPNAME]}_" + \
-        datetime.datetime.now().strftime(TIME_FORMAT)
-    os.makedirs(log_dirpath)
-    img_dirpath = osp.join(log_dirpath, 'images')
-    os.makedirs(img_dirpath)
-    handlers = [logging.FileHandler(
-        log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
-    logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-    del handlers
-
-    for k, v in opt.items():
-        logging.info(f'### Param - {k}: {v}')
+    log_dirpath, img_dirpath = configLogging('train', opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     transform = get_transform(opt)
@@ -139,11 +127,7 @@ def main():
             saveTensorAsImg(input_batch, 'debug/i.png')
             saveTensorAsImg(gt_batch, 'debug/o.png')
 
-            # import ipdb
-            # ipdb.set_trace()
-
             output = net(input_batch)
-            # import ipdb; ipdb.set_trace()
             output = torch.clamp(
                 output, 0.0, 1.0)
 
