@@ -25,17 +25,17 @@ console = Console()
 
 
 def get_transform(opt):
-    tconfig = opt[TRANSFORMS]
+    transformConfig = opt[TRANSFORMS]
 
-    tlist = [transforms.ToPILImage(), ]
-    if tconfig[HORIZON_FLIP]:
-        tlist.append(transforms.RandomHorizontalFlip())
+    transformList = [transforms.ToPILImage(), ]
+    if transformConfig[HORIZON_FLIP]:
+        transformList.append(transforms.RandomHorizontalFlip())
 
-    elif tconfig[VERTICAL_FLIP]:
-        tlist.append(transforms.RandomVerticalFlip())
+    elif transformConfig[VERTICAL_FLIP]:
+        transformList.append(transforms.RandomVerticalFlip())
 
-    tlist.append(transforms.ToTensor())
-    return transforms.Compose(tlist)
+    transformList.append(transforms.ToTensor())
+    return transforms.Compose(transformList)
 
 
 def main():
@@ -62,7 +62,7 @@ def main():
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
     log_dirpath = f"./train_log/{opt[EXPNAME]}_" + \
-        datetime.now().strftime(TIME_FORMAT)
+        datetime.datetime.now().strftime(TIME_FORMAT)
     os.makedirs(log_dirpath)
     img_dirpath = osp.join(log_dirpath, 'images')
     os.makedirs(img_dirpath)

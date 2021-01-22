@@ -297,6 +297,7 @@ class CubicFilter(nn.Module):
         x = x.view(x.size()[0], -1)
         x = self.dropout(x)
 
+        # R is the paramters predicted:
         R = self.fc_cubic(x)
 
         cubic_mask = torch.zeros_like(img)
@@ -308,6 +309,8 @@ class CubicFilter(nn.Module):
 
         x_axis = x_axis.float()
         y_axis = y_axis.float()
+
+        # generate specific filter using R:
         '''
         Cubic for R channel
         '''
@@ -360,7 +363,7 @@ class CubicFilter(nn.Module):
 class GraduatedFilter(nn.Module):
 
     def __init__(self, num_in_channels=64, num_out_channels=64):
-        """Initialisation function for the graduated filter
+        """Initialization function for the graduated filter
 
         :param num_in_channels:  input channels
         :param num_out_channels: output channels
