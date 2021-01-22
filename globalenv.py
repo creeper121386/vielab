@@ -1,6 +1,8 @@
 '''
 Put read-only global variables here.
 '''
+from rich.console import Console
+console = Console()
 
 NUM_EPOCH = 'num_epoch'
 GPU = 'gpu'

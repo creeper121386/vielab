@@ -30,10 +30,13 @@ matplotlib.use('agg')
 def configLogging(mode, opt):
     log_dirpath = f"./{mode}_log/{opt[EXPNAME]}_" + \
         datetime.datetime.now().strftime(TIME_FORMAT)
+    img_dirpath = osp.join(log_dirpath, 'images')
 
     os.makedirs(log_dirpath)
-    img_dirpath = osp.join(log_dirpath, 'images')
     os.makedirs(img_dirpath)
+
+    console.log('Build log directory:', log_dirpath)
+    console.log('Build image directory:', img_dirpath)
 
     handlers = [logging.FileHandler(
         log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]

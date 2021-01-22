@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-from rich.console import Console
 import argparse
-import datetime
-import logging
 import math
 import os
 import os.path
@@ -21,7 +18,7 @@ from data import Adobe5kDataLoader, Dataset
 from globalenv import *
 
 matplotlib.use('agg')
-console = Console()
+
 # np.set_printoptions(threshold=np.nan)
 
 
@@ -95,7 +92,7 @@ def main():
     del parser, args
 
     # ─── LOGGING ────────────────────────────────────────────────────────────────────
-    log_dirpath, img_dirpath = configLogging('train', opt)
+    log_dirpath, img_dirpath = configLogging('test', opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     testdata = Dataset(opt, data_dict=None, transform=transforms.Compose(

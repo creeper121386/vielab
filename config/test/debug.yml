@@ -7,6 +7,6 @@ input_dirpath: /data1/rxwang/laiqu_indoor_data/test_input
 
 transforms:
   crop: false # crop size, false for not cropping.
-  resize: 2.0 # downsample factor. 0.x for upsample; false for not resizing.
+  resize: 3.0 # downsample factor. 0.x for upsample; false for not resizing.
   horizon_flip: false
   vertical_flip: false

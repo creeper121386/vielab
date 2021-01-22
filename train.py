@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import argparse
-import datetime
 import logging
 import os
 import os.path as osp
-from rich.console import Console
 from globalenv import *
 
 import cv2
@@ -20,7 +18,6 @@ import model
 from data import Dataset
 
 matplotlib.use('agg')
-console = Console()
 # np.set_printoptions(threshold=np.nan)
 
 
