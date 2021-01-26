@@ -6,8 +6,8 @@ log_every: 100
 save_model_every: 1
 checkpoint_filepath: false # false for no checkpoint
 
-GT_dirpath: /home/haoyuanwang/indoor/gt_indoor
-input_dirpath: /home/haoyuanwang/indoor/input_indoor
+GT_dirpath: /home/haoyuanwang/deepLPF/indoor/gt_indoor
+input_dirpath: /home/haoyuanwang/deepLPF/indoor/input_indoor
 
 transforms:
   crop: false # crop size, false for not cropping.
