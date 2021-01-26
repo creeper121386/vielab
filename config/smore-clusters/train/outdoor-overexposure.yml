@@ -1,0 +1,16 @@
+expname: outdoor-overexposure-crop512
+num_epoch: 1000
+gpu: 2
+valid_every: 10
+log_every: 100
+save_model_every: 1
+checkpoint_filepath: false # false for no checkpoint
+
+GT_dirpath: '/data1/rxwang/outdoor/overexpose_gt'
+input_dirpath: '/data1/rxwang/outdoor/overexpose_input'
+
+transforms:
+  crop: 512 # crop size, false for not cropping.
+  resize: 1.5 # downsample factor. 0.x for upsample; false for not resizing.
+  horizon_flip: true
+  vertical_flip: true

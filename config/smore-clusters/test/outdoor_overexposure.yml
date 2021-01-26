@@ -1,0 +1,12 @@
+expname: outdoor-overexposure-crop512
+gpu: 0
+checkpoint_filepath: train_log/outdoor-overexposure-crop512_2021-01-21_15:12:18/deep_lpf_225.pth
+
+GT_dirpath: '/data1/rxwang/outdoor/overexpose_gt_test'
+input_dirpath: '/data1/rxwang/outdoor/overexpose_input_test'
+
+transforms:
+  crop: false # crop size, false for not cropping.
+  resize: 1.5 # downsample factor. 0.x for upsample; false for not resizing.
+  horizon_flip: false
+  vertical_flip: false
