@@ -28,7 +28,7 @@ from globalenv import *
 matplotlib.use('agg')
 
 def configLogging(mode, opt):
-    log_dirpath = f"./{mode}_log/{opt[EXPNAME]}_" + \
+    log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
         datetime.datetime.now().strftime(TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, 'images')
 
