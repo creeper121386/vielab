@@ -3,13 +3,13 @@ from util import ImageProcessing
 from torch.autograd import Variable
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import os.path
 import os
 import logging
-import matplotlib
+# import matplotlib
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 
 
 class Evaluator():

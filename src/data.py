@@ -10,11 +10,11 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 
 import cv2
-import matplotlib
+# import matplotlib
 import numpy as np
 import torch
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 console = Console()
 
 

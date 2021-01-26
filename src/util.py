@@ -12,20 +12,22 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
 
 '''
 from torch.autograd import Variable
-from skimage.measure import compare_ssim as ssim
+from skimage import measure
+
+# from skimage.measure import compare_ssim as ssim
 from matplotlib.image import imread, imsave
 import torch
 import numpy as np
 import os
 import os.path as osp
 import cv2
-import matplotlib
+# import matplotlib
 import yaml
 import logging
 import datetime
 from globalenv import *
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 
 def configLogging(mode, opt):
     log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
@@ -261,7 +263,7 @@ class ImageProcessing(object):
                 image_batchA[i, 0:3, :, :])
             imageB = ImageProcessing.swapimdims_3HW_HW3(
                 image_batchB[i, 0:3, :, :])
-            ssim_val += ssim(imageA, imageB, data_range=imageA.max() - imageA.min(), multichannel=True,
+            ssim_val += measure.compare_ssim(imageA, imageB, data_range=imageA.max() - imageA.min(), multichannel=True,
                              gaussian_weights=True, win_size=11)
 
         return ssim_val / num_images

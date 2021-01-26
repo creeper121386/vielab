@@ -20,9 +20,9 @@ import torch
 from math import exp
 import os.path
 import math
-import matplotlib
+# import matplotlib
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 
 
 print('Pytorch Version:', torch.__version__)

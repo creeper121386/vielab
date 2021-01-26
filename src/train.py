@@ -6,7 +6,7 @@ import os.path as osp
 from globalenv import *
 
 import cv2
-import matplotlib
+# import matplotlib
 import numpy as np
 import torch
 from util import parseConfig, saveTensorAsImg, configLogging
@@ -17,7 +17,7 @@ from torch.autograd import Variable
 import model
 from data import Dataset
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 # np.set_printoptions(threshold=np.nan)
 
 

@@ -6,7 +6,7 @@ import os.path
 import time
 
 import cv2
-import matplotlib
+# import matplotlib
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -17,7 +17,7 @@ import model
 from data import Adobe5kDataLoader, Dataset
 from globalenv import *
 
-matplotlib.use('agg')
+# matplotlib.use('agg')
 
 # np.set_printoptions(threshold=np.nan)
 
