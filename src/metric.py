@@ -6,6 +6,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import os.path
 import os
+from globalenv import *
 import logging
 # import matplotlib
 
@@ -58,11 +59,11 @@ class Evaluator():
 
         for batch_num, data in enumerate(self.data_loader, 0):
 
-            input_img_batch, output_img_batch, name = Variable(data['input_img'], requires_grad=False,
-                                                               volatile=True).cuda(), Variable(data['output_img'],
+            input_img_batch, output_img_batch, name = Variable(data[INPUT_IMG], requires_grad=False,
+                                                               volatile=True).cuda(), Variable(data[OUTPUT_IMG],
                                                                                                requires_grad=False,
                                                                                                volatile=True).cuda(), \
-                data['name']
+                data[NAME]
             input_img_batch = input_img_batch.unsqueeze(0)
 
             for i in range(0, input_img_batch.shape[0]):

@@ -83,7 +83,7 @@ def main():
     parser.add_argument(
         "--configpath", '-c', required=True, help="yml config file path")
     args = parser.parse_args()
-    opt = parseConfig(args.configpath, 'test')
+    opt = parseConfig(args.configpath, TEST)
 
     checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
 
@@ -92,7 +92,7 @@ def main():
     del parser, args
 
     # ─── LOGGING ────────────────────────────────────────────────────────────────────
-    log_dirpath, img_dirpath = configLogging('test', opt)
+    log_dirpath, img_dirpath = configLogging(TEST, opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     testdata = Dataset(opt, data_dict=None, transform=transforms.Compose(
@@ -102,7 +102,7 @@ def main():
     dataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False,
                                              num_workers=4)
 
-    net = model.DeepLPFNet()
+    net = model.DeepLPFNet(opt)
     para = torch.load(checkpoint_filepath,
                       map_location=lambda storage, location: storage)
     # switch model to evaluation mode
@@ -118,16 +118,16 @@ def main():
             continue
         '''
 
-        x, y, category = Variable(data['input_img'], requires_grad=False).cuda(), \
-            Variable(data['output_img'], requires_grad=False).cuda(), \
-            data['name']
+        x, y, category = Variable(data[INPUT_IMG], requires_grad=False).cuda(), \
+            Variable(data[OUTPUT_IMG], requires_grad=False).cuda(), \
+            data[NAME]
 
         path_split = category[0].split('/')
         path_id = path_split[-1].split('.jpg')[0]
 
         with torch.no_grad():
-            output = net(x)
-            output = torch.clamp(output, 0.0, 1.0)
+            outputDict = net(x)
+            output = torch.clamp(outputDict[OUTPUT], 0.0, 1.0)
 
         saveTensorAsImg(output, os.path.join(img_dirpath, path_id + '.jpg'))
 

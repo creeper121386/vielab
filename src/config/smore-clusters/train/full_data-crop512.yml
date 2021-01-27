@@ -1,4 +1,4 @@
-expname: full_data-crop512
+expname: full_data-crop512-illu-cos-ltv
 num_epoch: 1000
 gpu: 1
 valid_every: 10
@@ -8,9 +8,14 @@ checkpoint_filepath: false # false for no checkpoint
 
 GT_dirpath: /data1/why/full_data/full_data/output
 input_dirpath: /data1/why/full_data/full_data/input
+predict_illumination: true
 
 transforms:
   crop: 512 # crop size, false for not cropping.
   resize: 1.5 # downsample factor. 0.x for upsample; false for not resizing.
   horizon_flip: true
   vertical_flip: true
+
+losses:
+  LocalSmoothnessLoss: 0.1
+  CosSimilarity: 0.1

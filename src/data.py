@@ -86,7 +86,8 @@ class Dataset(torch.utils.data.Dataset):
 
         # resize the image:
         elif resizeFactor:
-            assert type(resizeFactor) == float
+            # accept int and float:
+            assert type(resizeFactor + 0.1) == float
 
             img = cv2.resize(img, (int(width / resizeFactor),
                                    int(height / resizeFactor)))
@@ -119,14 +120,14 @@ class Dataset(torch.utils.data.Dataset):
         input_img = self.applyTransformForOneImg(input_img, seed)
         output_img = self.applyTransformForOneImg(output_img, seed)
 
-        return {'input_img': input_img, 'output_img': output_img,
-                'name': self.train_ids[idx][1]}
+        return {INPUT_IMG: input_img, OUTPUT_IMG: output_img,
+                NAME: self.train_ids[idx][1]}
 
 
 class DataLoader():
 
     def __init__(self, data_dirpath, img_ids_filepath):
-        """Initialisation function for the data loader
+        """Initialization function for the data loader
 
         :param data_dirpath: directory containing the data
         :param img_ids_filepath: file containing the ids of the images to load
@@ -161,7 +162,7 @@ class DataLoader():
 class Adobe5kDataLoader(DataLoader):
 
     def __init__(self, data_dirpath, img_ids_filepath):
-        """Initialisation function for the data loader
+        """Initialization function for the data loader
 
         :param data_dirpath: directory containing the data
         :param img_ids_filepath: file containing the ids of the images to load
@@ -211,8 +212,8 @@ class Adobe5kDataLoader(DataLoader):
                     if not img_id in img_id_to_idx_dict.keys():
                         img_id_to_idx_dict[img_id] = idx
                         self.data_dict[idx] = {}
-                        self.data_dict[idx]['input_img'] = None
-                        self.data_dict[idx]['output_img'] = None
+                        self.data_dict[idx][INPUT_IMG] = None
+                        self.data_dict[idx][OUTPUT_IMG] = None
                         idx_tmp = idx
                         idx += 1
                     else:
@@ -223,7 +224,7 @@ class Adobe5kDataLoader(DataLoader):
 
                         input_img_filepath = file
 
-                        self.data_dict[idx_tmp]['input_img'] = root + \
+                        self.data_dict[idx_tmp][INPUT_IMG] = root + \
                             "/" + input_img_filepath
 
                     elif ("output" in root):  # change this to the name of your
@@ -231,7 +232,7 @@ class Adobe5kDataLoader(DataLoader):
 
                         output_img_filepath = file
 
-                        self.data_dict[idx_tmp]['output_img'] = root + \
+                        self.data_dict[idx_tmp][OUTPUT_IMG] = root + \
                             "/" + output_img_filepath
 
                 else:
@@ -239,7 +240,7 @@ class Adobe5kDataLoader(DataLoader):
                     logging.debug("Excluding file with id: " + str(img_id))
 
         for idx, imgs in self.data_dict.items():
-            assert ('input_img' in imgs)
-            assert ('output_img' in imgs)
+            assert (INPUT_IMG in imgs)
+            assert (OUTPUT_IMG in imgs)
 
         return self.data_dict

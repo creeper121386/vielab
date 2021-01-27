@@ -20,6 +20,7 @@ import torch
 from math import exp
 import os.path
 import math
+from globalenv import *
 # import matplotlib
 
 # matplotlib.use('agg')
@@ -29,9 +30,48 @@ print('Pytorch Version:', torch.__version__)
 # np.set_printoptions(threshold=np.nan)
 
 
+class LTVloss(nn.Module):
+    def __init__(self, alpha=1.2, beta=1.5, eps=1e-4):
+        super(LTVloss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.eps = eps
+
+    def forward(self, origin, illumination, weight):
+        '''
+        origin:       one batch of input data. shape [batchsize, 3, h, w]
+        illumination: one batch of predicted illumination data. if predicted_illumination 
+                      is False, then use the output (predicted result) of the network.
+        '''
+
+        # # re-normalize origin to 0 ~ 1
+        # origin = (input_ - input_.min().item()) / (input_.max().item() - input_.min().item())
+
+        I = origin[:, 0:1, :, :] * 0.299 + origin[:, 1:2, :, :] * \
+            0.587 + origin[:, 2:3, :, :] * 0.114
+        L = torch.log(I + self.eps)
+        dx = L[:, :, :-1, :-1] - L[:, :, :-1, 1:]
+        dy = L[:, :, :-1, :-1] - L[:, :, 1:, :-1]
+
+        dx = self.beta / (torch.pow(torch.abs(dx), self.alpha) + self.eps)
+        dy = self.beta / (torch.pow(torch.abs(dy), self.alpha) + self.eps)
+
+        x_loss = dx * \
+            ((illumination[:, :, :-1, :-1] - illumination[:, :, :-1, 1:]) ** 2)
+        y_loss = dy * \
+            ((illumination[:, :, :-1, :-1] - illumination[:, :, 1:, :-1]) ** 2)
+        tvloss = torch.mean(x_loss + y_loss) / 2.0
+
+        #  print(origin.max().item(), origin.mean().item(), illmination.max().item(), illmination.mean().item(), 'tv loss', tvloss.item(),
+        #       I.mean().item(), L.mean().item(), dx.mean().item(), dy.mean().item())
+        # exit(0)
+
+        return tvloss * weight
+
+
 class DeepLPFLoss(nn.Module):
 
-    def __init__(self, ssim_window_size=5, alpha=0.5):
+    def __init__(self, opt, ssim_window_size=5, alpha=0.5):
         """Initialisation of the DeepLPF loss function
 
         :param ssim_window_size: size of averaging window for SSIM
@@ -42,7 +82,19 @@ class DeepLPFLoss(nn.Module):
         """
         super(DeepLPFLoss, self).__init__()
         self.alpha = alpha
+        self.opt = opt
         self.ssim_window_size = ssim_window_size
+        self.cos = nn.CosineSimilarity(1, 1e-8)
+        self.ltv = LTVloss()
+        self.losses = {
+            SSIM_LOSS: None,
+            L1_LOSS: None,
+            LOCAL_SMOOTHNESS_LOSS: None,
+            COS_SIMILARITY: None
+        }
+
+        assert LOCAL_SMOOTHNESS_LOSS in self.opt[LOSSES]
+        assert COS_SIMILARITY in self.opt[LOSSES]
 
     def create_window(self, window_size, num_channel):
         """Window creation function for SSIM metric. Gaussian weights are applied to the window.
@@ -176,15 +228,18 @@ class DeepLPFLoss(nn.Module):
                 * (mssim[levels - 1] ** weights[levels - 1]))
         return prod
 
-    def forward(self, predicted_img_batch, target_img_batch):
+    def forward(self, outputDict, target_img_batch):
         """Forward function for the DeepLPF loss
 
-        :param predicted_img_batch: 
+        :param outputDict: output dict with key OUTPUT and 'illumination'(optional) for network 
         :param target_img_batch: Tensor of shape BxCxWxH
         :returns: value of loss function
         :rtype: float
 
         """
+        assert OUTPUT in outputDict and INPUT in outputDict
+
+        predicted_img_batch = outputDict[OUTPUT]
         num_images = target_img_batch.shape[0]
         target_img_batch = target_img_batch
 
@@ -207,17 +262,51 @@ class DeepLPFLoss(nn.Module):
             target_img_L_ssim = target_img_L_ssim.unsqueeze(0)
             predicted_img_L_ssim = predicted_img_L_ssim.unsqueeze(0)
 
+            # SSIM loss
             ssim_value = self.compute_msssim(
                 predicted_img_L_ssim, target_img_L_ssim)
             ssim_loss_value += (1.0 - ssim_value)
 
+            # L1 loss
             l1_loss_value += F.l1_loss(predicted_img_lab, target_img_lab)
+
 
         l1_loss_value = l1_loss_value/num_images
         ssim_loss_value = ssim_loss_value/num_images
 
         deeplpf_loss = l1_loss_value + 1e-3*ssim_loss_value
+
+        
+        # ─── LOCAL SMOOTHNESS LOSS ───────────────────────────────────────
+        ltvWeight = self.opt[LOSSES][LOCAL_SMOOTHNESS_LOSS]
+
+        if ltvWeight:
+            assert type(ltvWeight + 0.1) == float
+
+            if self.opt[PREDICT_ILLUMINATION]:
+                # apply ltv loss on illumination: 
+                assert PREDICT_ILLUMINATION in outputDict
+                img_key = PREDICT_ILLUMINATION
+            else:
+                img_key = OUTPUT
+
+            self.losses[LOCAL_SMOOTHNESS_LOSS] = self.ltv(outputDict[INPUT], outputDict[img_key], ltvWeight)
+            deeplpf_loss += self.losses[LOCAL_SMOOTHNESS_LOSS]
+
+        # ─── COS SIMILARITY ──────────────────────────────────────────────
+        cosWeight = self.opt[LOSSES][COS_SIMILARITY]
+        if cosWeight:
+            assert type(cosWeight + 0.1) == float
+
+            cos_loss = self.cos(predicted_img_batch, target_img_batch).mean()
+            self.losses[COS_SIMILARITY] = cos_loss
+            deeplpf_loss += cos_loss
+        # ─────────────────────────────────────────────────────────────────
+
         return deeplpf_loss
+
+    def get_currnet_loss(self):
+        return self.losses
 
 
 class BinaryLayer(nn.Module):
@@ -961,12 +1050,12 @@ class DeepLPFParameterPrediction(nn.Module):
         mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
             feat, img)
 
-        ## Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
+        # Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
         mask_scale_fuse = torch.clamp(
             mask_scale_graduated+mask_scale_elliptical, 0, 2)
         img_fuse = torch.clamp(img_cubic * mask_scale_fuse, 0, 1)
 
-        ## Y = Y1 + Y3 :
+        # Y = Y1 + Y3 :
         img = torch.clamp(img_fuse+img, 0, 1)
 
         return img
@@ -974,7 +1063,7 @@ class DeepLPFParameterPrediction(nn.Module):
 
 class DeepLPFNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, opt):
         """Initialisation function
 
         :returns: initialises parameters of the neural networ
@@ -982,6 +1071,7 @@ class DeepLPFNet(nn.Module):
 
         """
         super(DeepLPFNet, self).__init__()
+        self.opt = opt
         self.backbonenet = unet.UNetModel()
         self.deeplpfnet = DeepLPFParameterPrediction()
 
@@ -994,6 +1084,13 @@ class DeepLPFNet(nn.Module):
 
         """
         feat = self.backbonenet(img)
-        img = self.deeplpfnet(feat)
+        output = self.deeplpfnet(feat)
+        res = dict()
 
-        return img
+        if self.opt[PREDICT_ILLUMINATION]:
+            res[PREDICT_ILLUMINATION] = output
+            output = img / output
+
+        res[INPUT] = img
+        res[OUTPUT] = output
+        return res

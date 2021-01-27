@@ -29,10 +29,11 @@ from globalenv import *
 
 # matplotlib.use('agg')
 
+
 def configLogging(mode, opt):
     log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
         datetime.datetime.now().strftime(TIME_FORMAT)
-    img_dirpath = osp.join(log_dirpath, 'images')
+    img_dirpath = osp.join(log_dirpath, IMAGES)
 
     os.makedirs(log_dirpath)
     os.makedirs(img_dirpath)
@@ -57,7 +58,7 @@ def saveTensorAsImg(output, path, resize=False):
     outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
 
     if resize:
-        assert type(resize) == float
+        assert type(resize + 0.1) == float
 
         h = outImg.shape[0]
         w = outImg.shape[1]
@@ -71,11 +72,17 @@ def parseConfig(ymlpath, mode):
     input config file path (yml file), return config dict.
     '''
     print(f'* Reading config from: {ymlpath}')
-    yml = yaml.load(open(ymlpath, 'r').read())
 
-    if mode == 'train':
+    if ymlpath.startswith('http'):
+        import requests
+        ymlContent = requests.get(ymlpath).content
+    else:
+        ymlContent = open(ymlpath, 'r').read()
+
+    yml = yaml.load(ymlContent)
+    if mode == TRAIN:
         necessaryFields = trainNecessaryFields
-    elif mode == 'test':
+    elif mode == TEST:
         necessaryFields = testNecessaryFields
     else:
         raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
@@ -264,6 +271,6 @@ class ImageProcessing(object):
             imageB = ImageProcessing.swapimdims_3HW_HW3(
                 image_batchB[i, 0:3, :, :])
             ssim_val += measure.compare_ssim(imageA, imageB, data_range=imageA.max() - imageA.min(), multichannel=True,
-                             gaussian_weights=True, win_size=11)
+                                             gaussian_weights=True, win_size=11)
 
         return ssim_val / num_images

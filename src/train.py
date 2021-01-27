@@ -42,7 +42,7 @@ def main():
     parser.add_argument(
         "--configpath", '-c', required=True, help="yml config file path")
     args = parser.parse_args()
-    opt = parseConfig(args.configpath, 'train')
+    opt = parseConfig(args.configpath, TRAIN)
     # opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
 
     num_epoch = opt[NUM_EPOCH]
@@ -58,7 +58,7 @@ def main():
     console.log('Paramters:', opt, log_locals=False)
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
-    log_dirpath, img_dirpath = configLogging('train', opt)
+    log_dirpath, img_dirpath = configLogging(TRAIN, opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
     transform = get_transform(opt)
@@ -68,7 +68,7 @@ def main():
 
     trainloader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
                                               num_workers=4)
-    net = model.DeepLPFNet()
+    net = model.DeepLPFNet(opt)
     start_epoch = 0
 
     # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ def main():
     #         print(name)
     # ───  ───────────────────────────────────────────────────────────────────────────
 
-    criterion = model.DeepLPFLoss(ssim_window_size=5)
+    criterion = model.DeepLPFLoss(opt, ssim_window_size=5)
 
     console.log('Model initialization finished.')
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters(
@@ -116,23 +116,37 @@ def main():
         examples = 0.0
         running_loss = 0.0
 
+        losses = {
+            SSIM_LOSS: 0,
+            L1_LOSS: 0,
+            LOCAL_SMOOTHNESS_LOSS: 0,
+            COS_SIMILARITY: 0
+        }
         for batch_num, data in enumerate(trainloader, 0):
-            input_batch, gt_batch, category = Variable(data['input_img'], requires_grad=False).cuda(), \
-                Variable(data['output_img'],
-                         requires_grad=False).cuda(), data['name']
+            input_batch, gt_batch, category = Variable(data[INPUT_IMG], requires_grad=False).cuda(), \
+                Variable(data[OUTPUT_IMG],
+                         requires_grad=False).cuda(), data[NAME]
 
             saveTensorAsImg(input_batch, 'debug/i.png')
             saveTensorAsImg(gt_batch, 'debug/o.png')
 
-            output = net(input_batch)
+            outputDict = net(input_batch)
+
             output = torch.clamp(
-                output, 0.0, 1.0)
+                outputDict[OUTPUT], 0.0, 1.0)
 
             if iternum % 500 == 0:
                 saveTensorAsImg(output, osp.join(
                     img_dirpath, f'epoch{epoch}_iter{iternum}.png'))
 
-            loss = criterion(output, gt_batch)
+            loss = criterion(outputDict, gt_batch)
+
+            this_losses = criterion.get_currnet_loss()
+            for k in losses:
+                if this_losses[k] is not None:
+                    losses[k] += this_losses[k]
+                else:
+                    losses[k] = 'False'
 
             optimizer.zero_grad()
             loss.backward()
@@ -144,15 +158,20 @@ def main():
             iternum += 1
 
             if iternum % log_every == 0:
-                logging.info('[%d] iter: %d, train loss: %.10f' %
-                             (epoch + 1, iternum, running_loss / examples))
+                info = '[%d] iter: %d, ' % (epoch + 1, iternum)
+                for k in losses:
+                    info += f'{k}: {losses[k] / examples}, '
+
+                info += 'Total loss: %.10f' % (running_loss / examples)
+
+                logging.info(info)
 
         if epoch % save_every == 0:
-            snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')
+            snapshot_prefix = osp.join(log_dirpath, MODELNAME)
             snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
             torch.save(net.state_dict(), snapshot_path)
 
-    snapshot_prefix = osp.join(log_dirpath, 'deep_lpf')
+    snapshot_prefix = osp.join(log_dirpath, MODELNAME)
     snapshot_path = snapshot_prefix + "_" + str(num_epoch)
     torch.save(net.state_dict(), snapshot_path)
 
