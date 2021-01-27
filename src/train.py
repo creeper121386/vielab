@@ -146,7 +146,7 @@ def main():
                 if this_losses[k] is not None:
                     losses[k] += this_losses[k]
                 else:
-                    losses[k] = 'False'
+                    losses[k] = STRING_FALSE
 
             optimizer.zero_grad()
             loss.backward()
@@ -160,7 +160,12 @@ def main():
             if iternum % log_every == 0:
                 info = '[%d] iter: %d, ' % (epoch + 1, iternum)
                 for k in losses:
-                    info += f'{k}: {losses[k] / examples}, '
+                    if type(losses[k]) != torch.Tensor:
+                        lossValue = losses[k]
+                        info += f'{k}: {lossValue}, '
+                    else:
+                        lossValue = float(losses[k] / examples) 
+                        info += f'{k}: {lossValue:.5f}, '
 
                 info += 'Total loss: %.10f' % (running_loss / examples)
 

@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "--config", "config/test/debug.yml"
+                "--config", "src/config/train-debug.yml"
             ]
         }
     ]

@@ -276,6 +276,9 @@ class DeepLPFLoss(nn.Module):
 
         deeplpf_loss = l1_loss_value + 1e-3*ssim_loss_value
 
+        self.losses[L1_LOSS] = l1_loss_value
+        self.losses[SSIM_LOSS] = ssim_loss_value
+
         
         # ─── LOCAL SMOOTHNESS LOSS ───────────────────────────────────────
         ltvWeight = self.opt[LOSSES][LOCAL_SMOOTHNESS_LOSS]
@@ -298,11 +301,12 @@ class DeepLPFLoss(nn.Module):
         if cosWeight:
             assert type(cosWeight + 0.1) == float
 
-            cos_loss = self.cos(predicted_img_batch, target_img_batch).mean()
+            cos_loss = self.cos(predicted_img_batch, target_img_batch).mean() * cosWeight
             self.losses[COS_SIMILARITY] = cos_loss
             deeplpf_loss += cos_loss
         # ─────────────────────────────────────────────────────────────────
 
+        # import ipdb; ipdb.set_trace()
         return deeplpf_loss
 
     def get_currnet_loss(self):
@@ -1075,7 +1079,7 @@ class DeepLPFNet(nn.Module):
         self.backbonenet = unet.UNetModel()
         self.deeplpfnet = DeepLPFParameterPrediction()
 
-    def forward(self, img):
+    def forward(self, input):
         """Neural network forward function
 
         :param img: forward the data img through the network
@@ -1083,14 +1087,18 @@ class DeepLPFNet(nn.Module):
         :rtype: numpy ndarray
 
         """
-        feat = self.backbonenet(img)
-        output = self.deeplpfnet(feat)
+        feat = self.backbonenet(input)
+        output = self.deeplpfnet(feat) + 1e-8
         res = dict()
 
         if self.opt[PREDICT_ILLUMINATION]:
             res[PREDICT_ILLUMINATION] = output
-            output = img / output
 
-        res[INPUT] = img
+            # limit (input / out) to 0 ~ 1
+            # 对于输出结果(L)中，比input还小的部分，直接取input
+            # 防止预测的L，比input值（暗光图）还要小:
+            output = input / torch.where(output < input, input, output)
+
+        res[INPUT] = input
         res[OUTPUT] = output
         return res

@@ -17,10 +17,11 @@ LOSSES = 'losses'
 GPU = 'gpu'
 
 # config::losses
-LOCAL_SMOOTHNESS_LOSS = 'LocalSmoothnessLoss'
+LOCAL_SMOOTHNESS_LOSS = 'ltvLoss'
 COS_SIMILARITY = 'CosSimilarity'
 SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
+STRING_FALSE= 'False'
 
 SAVE_MODEL_EVERY = 'save_model_every'
 TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'

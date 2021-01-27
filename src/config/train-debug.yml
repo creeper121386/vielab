@@ -1,9 +1,9 @@
-expname: full_data-crop512-illu-cos-ltv
+expname: 
 num_epoch: 1000
-gpu: 1
+gpu: 0
 valid_every: 10
-log_every: 1
-save_model_every: 1
+log_every: 5
+save_model_every: 1000
 checkpoint_filepath: false # false for no checkpoint
 
 GT_dirpath: /data1/why/full_data/full_data/output
