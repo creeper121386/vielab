@@ -10,7 +10,9 @@ def clean(logdir):
         if not osp.isdir(dirpath):
             continue
 
-        if len(os.listdir(dirpath)) < 3:
+        imgpath = os.path.join(dirpath, 'images')
+
+        if len(os.listdir(dirpath)) < 3 and len(os.listdir(imgpath)) < 3:
             print('clean:', dirpath)
             shutil.rmtree(dirpath)
 

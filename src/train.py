@@ -13,12 +13,11 @@ from util import parseConfig, saveTensorAsImg, configLogging
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
+from torch.utils.tensorboard import SummaryWriter
 
 import model
 from data import Dataset
-
-# matplotlib.use('agg')
-# np.set_printoptions(threshold=np.nan)
+writer = SummaryWriter()
 
 
 def get_transform(opt):
@@ -157,18 +156,23 @@ def main():
 
             iternum += 1
 
+            # ─── LOGGING LOSSES ──────────────────────────────────────────────
+            info = '[%d] iter: %d, ' % (epoch + 1, iternum)
+            for k in losses:
+                if type(losses[k]) != torch.Tensor:
+                    lossValue = losses[k]
+                    info += f'{k}: {lossValue}, '
+                else:
+                    lossValue = float(losses[k] / examples)
+                    info += f'{k}: {lossValue:.5f}, '
+
+                    writer.add_scalar('Train-Loss/' + k, lossValue, iternum)
+
+
+            writer.add_scalar('Train-Loss/TotalLoss', running_loss / examples, iternum)
+            info += 'Total loss: %.10f' % (running_loss / examples)
+
             if iternum % log_every == 0:
-                info = '[%d] iter: %d, ' % (epoch + 1, iternum)
-                for k in losses:
-                    if type(losses[k]) != torch.Tensor:
-                        lossValue = losses[k]
-                        info += f'{k}: {lossValue}, '
-                    else:
-                        lossValue = float(losses[k] / examples) 
-                        info += f'{k}: {lossValue:.5f}, '
-
-                info += 'Total loss: %.10f' % (running_loss / examples)
-
                 logging.info(info)
 
         if epoch % save_every == 0:
@@ -179,6 +183,9 @@ def main():
     snapshot_prefix = osp.join(log_dirpath, MODELNAME)
     snapshot_path = snapshot_prefix + "_" + str(num_epoch)
     torch.save(net.state_dict(), snapshot_path)
+
+    writer.close()
+
 
 
 if __name__ == "__main__":
