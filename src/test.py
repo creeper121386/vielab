@@ -131,6 +131,12 @@ def main():
 
         saveTensorAsImg(output, os.path.join(img_dirpath, path_id + '.jpg'))
 
+        if PREDICT_ILLUMINATION in outputDict:
+            illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
+            if not os.path.exists(illuminationPath):
+                os.makedirs(illuminationPath)
+            saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(illuminationPath, path_id + '.jpg'))
+
         # ─── CALCULATE METRICS ───────────────────────────────────────────
         output_ = output.clone().detach().cpu().numpy()
         y_ = y.clone().detach().cpu().numpy()
