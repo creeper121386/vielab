@@ -2,5 +2,5 @@
 
 crop: 512 # crop size, false for not cropping.
 resize: false # downsample factor. 0.x for upsample; false for not resizing.
-horizon_flip: true
-vertical_flip: true
+h-flip: true
+v-flip: true

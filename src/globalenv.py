@@ -7,7 +7,7 @@ console = Console()
 
 # config.yml
 PREDICT_ILLUMINATION = 'predict_illumination'
-CHECKPOINT_FILEPATH = 'checkpoint_filepath'
+CHECKPOINT_FILEPATH = 'model_path'
 SAVE_MODEL_EVERY = 'save_model_every'
 TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT_DIRPATH = 'input_dirpath'
@@ -22,16 +22,17 @@ DATA = 'data'
 GPU = 'gpu'
 
 # config::losses
-LOCAL_SMOOTHNESS_LOSS = 'ltvLoss'
-COS_SIMILARITY = 'CosSimilarity'
+# LOCAL_SMOOTHNESS_LOSS = 'ltvLoss'
+LTV_LOSS = 'ltv'
+COS_LOSS = 'cos'
 SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
 STRING_FALSE= 'False'
 
 
 # config::transforms
-VERTICAL_FLIP = 'vertical_flip'
-HORIZON_FLIP = 'horizon_flip'
+VERTICAL_FLIP = 'v-flip'
+HORIZON_FLIP = 'h-flip'
 RESIZE = 'resize'
 CROP = 'crop'
 

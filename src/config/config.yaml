@@ -4,7 +4,7 @@ gpu: 1
 valid_every: 10
 log_every: 100
 save_model_every: 20
-checkpoint_filepath: false # false for no checkpoint
+model_path: false # false for no checkpoint
 
 predict_illumination: true
 
