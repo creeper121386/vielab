@@ -8,13 +8,17 @@ console = Console()
 # config.yml
 PREDICT_ILLUMINATION = 'predict_illumination'
 CHECKPOINT_FILEPATH = 'checkpoint_filepath'
+SAVE_MODEL_EVERY = 'save_model_every'
+TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
+INPUT_DIRPATH = 'input_dirpath'
 VALID_EVERY = 'valid_every'
 GT_DIRPATH = 'GT_dirpath'
-TRANSFORMS = 'transforms'
+TRANSFORMS = 'trans'
 NUM_EPOCH = 'num_epoch'
 LOG_EVERY = 'log_every'
-EXPNAME = 'expname'
-LOSSES = 'losses'
+EXPNAME = 'name'
+LOSSES = 'loss'
+DATA = 'data'
 GPU = 'gpu'
 
 # config::losses
@@ -24,9 +28,6 @@ SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
 STRING_FALSE= 'False'
 
-SAVE_MODEL_EVERY = 'save_model_every'
-TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
-INPUT_DIRPATH = 'input_dirpath'
 
 # config::transforms
 VERTICAL_FLIP = 'vertical_flip'
@@ -60,8 +61,7 @@ trainNecessaryFields = [
     LOG_EVERY,
     SAVE_MODEL_EVERY,
     CHECKPOINT_FILEPATH,
-    GT_DIRPATH,
-    INPUT_DIRPATH,
+    DATA,
     TRANSFORMS,
     PREDICT_ILLUMINATION,
     LOSSES
@@ -71,8 +71,7 @@ testNecessaryFields = [
     EXPNAME,
     GPU,
     CHECKPOINT_FILEPATH,
-    GT_DIRPATH,
-    INPUT_DIRPATH,
+    DATA,
     TRANSFORMS,
     PREDICT_ILLUMINATION
 ]

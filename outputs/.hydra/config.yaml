@@ -1,0 +1,19 @@
+name: debug
+num_epoch: 1000
+gpu: 1
+valid_every: 10
+log_every: 100
+save_model_every: 20
+checkpoint_filepath: false
+predict_illumination: true
+data:
+  GT_dirpath: /data1/why/full_data/full_data/output
+  input_dirpath: /data1/why/full_data/full_data/input
+loss:
+  ltvLoss: false
+  CosSimilarity: 0.1
+trans:
+  crop: 512
+  resize: false
+  horizon_flip: true
+  vertical_flip: true

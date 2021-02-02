@@ -1,0 +1,2 @@
+- gpu=3
+- loss.ltvLoss=false

@@ -67,6 +67,23 @@ def saveTensorAsImg(output, path, resize=False):
     cv2.imwrite(path, outImg.astype(np.uint8))
 
 
+def checkConfig(opt, mode):
+    if mode == TRAIN:
+        necessaryFields = trainNecessaryFields
+    elif mode == TEST:
+        necessaryFields = testNecessaryFields
+    else:
+        raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
+
+    for x in necessaryFields:
+        try:
+            assert x in opt
+        except:
+            print('Field missing:', x)
+            
+    return opt
+
+
 def parseConfig(ymlpath, mode):
     '''
     input config file path (yml file), return config dict.
@@ -80,21 +97,7 @@ def parseConfig(ymlpath, mode):
         ymlContent = open(ymlpath, 'r').read()
 
     yml = yaml.load(ymlContent)
-    if mode == TRAIN:
-        necessaryFields = trainNecessaryFields
-    elif mode == TEST:
-        necessaryFields = testNecessaryFields
-    else:
-        raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
-
-    # make sure the format is valid:
-    for x in necessaryFields:
-        try:
-            assert x in yml
-        except:
-            print('Field missing:', x)
-
-    return yml
+    return checkConfig(yml, mode)
 
 
 class ImageProcessing(object):

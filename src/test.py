@@ -1,25 +1,20 @@
 # -*- coding: utf-8 -*-
-import argparse
 import math
 import os
 import os.path
-import time
 
 import cv2
 # import matplotlib
 import numpy as np
+import hydra
 import torch
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from util import ImageProcessing, saveTensorAsImg, parseConfig, configLogging
+from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
 import model
 from data import Adobe5kDataLoader, Dataset
 from globalenv import *
-
-# matplotlib.use('agg')
-
-# np.set_printoptions(threshold=np.nan)
 
 
 def calculate_psnr(img1, img2):
@@ -76,22 +71,14 @@ def calculate_ssim(img1, img2):
         raise ValueError('Wrong input image dimensions.')
 
 
-def main():
-    # ─── PARSE CONFIG ───────────────────────────────────────────────────────────────
-    parser = argparse.ArgumentParser(
-        description="Train the DeepLPF neural network on image pairs")
-    parser.add_argument(
-        "--configpath", '-c', required=True, help="yml config file path")
-    args = parser.parse_args()
-    opt = parseConfig(args.configpath, TEST)
+@hydra.main(config_path='config', config_name="config")
+def main(opt):
+    opt = checkConfig(opt, TEST)
 
     checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
 
     torch.cuda.set_device(opt[GPU])
     console.log('Current cuda device:', torch.cuda.current_device())
-    del parser, args
-
-    # ─── LOGGING ────────────────────────────────────────────────────────────────────
     log_dirpath, img_dirpath = configLogging(TEST, opt)
 
     # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
@@ -132,10 +119,12 @@ def main():
         saveTensorAsImg(output, os.path.join(img_dirpath, path_id + '.jpg'))
 
         if PREDICT_ILLUMINATION in outputDict:
+            # import ipdb; ipdb.set_trace()
             illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
             if not os.path.exists(illuminationPath):
                 os.makedirs(illuminationPath)
-            saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(illuminationPath, path_id + '.jpg'))
+            saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(
+                illuminationPath, path_id + '.jpg'))
 
         # ─── CALCULATE METRICS ───────────────────────────────────────────
         output_ = output.clone().detach().cpu().numpy()

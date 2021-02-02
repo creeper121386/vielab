@@ -35,8 +35,8 @@ class Dataset(torch.utils.data.Dataset):
         self.is_valid = is_valid
         self.opt = opt
 
-        dir_this_GT = opt[GT_DIRPATH]
-        dir_this_input = opt[INPUT_DIRPATH]
+        dir_this_GT = opt[DATA][GT_DIRPATH]
+        dir_this_input = opt[DATA][INPUT_DIRPATH]
 
         console.log(f'GT Directory path: [red]{dir_this_GT}[/red]')
         console.log(f'Input Directory path: [red]{dir_this_input}[/red]')

@@ -1,4 +1,7 @@
 .idea
+src/runs/
+src/outputs/
+src/*.log
 debug/
 *cache*
 *log

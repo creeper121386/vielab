@@ -1,10 +1,11 @@
-expname: full_data-crop512-Illu
+expname: full_data-crop512-IlluCos
 num_epoch: 1000
 gpu: 1
 valid_every: 10
 log_every: 100
-save_model_every: 5
+save_model_every: 20
 checkpoint_filepath: false # false for no checkpoint
+predict_illumination: true
 
 GT_dirpath: /data1/why/full_data/full_data/output
 input_dirpath: /data1/why/full_data/full_data/input
@@ -17,6 +18,4 @@ transforms:
 
 losses:
   ltvLoss: false
-  CosSimilarity: false
-
-predict_illumination: true
+  CosSimilarity: 0.1

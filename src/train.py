@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
-import argparse
 import logging
 import os
 import os.path as osp
 from globalenv import *
 
-import cv2
-# import matplotlib
-import numpy as np
 import torch
-from util import parseConfig, saveTensorAsImg, configLogging
+from util import checkConfig, saveTensorAsImg, configLogging
+import hydra
+# from omegaconf import DictConfig, OmegaConf
+
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -33,16 +32,9 @@ def get_transform(opt):
     transformList.append(transforms.ToTensor())
     return transforms.Compose(transformList)
 
-
-def main():
-    # ─── PARSE CONFIG ───────────────────────────────────────────────────────────────
-    parser = argparse.ArgumentParser(
-        description="Train the DeepLPF neural network on image pairs")
-    parser.add_argument(
-        "--configpath", '-c', required=True, help="yml config file path")
-    args = parser.parse_args()
-    opt = parseConfig(args.configpath, TRAIN)
-    # opt[EXPNAME] = osp.basename(osp.splitext(args.configpath)[0])
+@hydra.main(config_path='config', config_name="config")
+def main(opt):
+    opt = checkConfig(opt, TRAIN)
 
     num_epoch = opt[NUM_EPOCH]
     valid_every = opt[VALID_EVERY]
@@ -53,7 +45,6 @@ def main():
     torch.cuda.set_device(opt[GPU])
     console.log('Current cuda device:', torch.cuda.current_device())
 
-    del parser, args
     console.log('Paramters:', opt, log_locals=False)
 
     # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
@@ -126,17 +117,25 @@ def main():
                 Variable(data[OUTPUT_IMG],
                          requires_grad=False).cuda(), data[NAME]
 
-            saveTensorAsImg(input_batch, 'debug/i.png')
-            saveTensorAsImg(gt_batch, 'debug/o.png')
+            # saveTensorAsImg(input_batch, 'debug/i.png')
+            # saveTensorAsImg(gt_batch, 'debug/o.png')
 
             outputDict = net(input_batch)
 
             output = torch.clamp(
                 outputDict[OUTPUT], 0.0, 1.0)
 
+            # ─── SAVE LOG ────────────────────────────────────────────────────
             if iternum % 500 == 0:
                 saveTensorAsImg(output, osp.join(
                     img_dirpath, f'epoch{epoch}_iter{iternum}.png'))
+
+                if PREDICT_ILLUMINATION in outputDict:
+                    illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
+                    if not os.path.exists(illuminationPath):
+                        os.makedirs(illuminationPath)
+                    saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(illuminationPath, f'epoch{epoch}_iter{iternum}.png'))
+
 
             loss = criterion(outputDict, gt_batch)
 
