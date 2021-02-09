@@ -106,11 +106,14 @@ hydra:
   overrides:
     hydra: []
     task:
-    - gpu=3
-    - loss.ltvLoss=false
+    - gpu=2
+    - loss.ltv=false
+    - name=full_data-illuCos-onlyE
+    - data=full
+    - filters=e
   job:
     name: train
-    override_dirname: gpu=3,loss.ltvLoss=false
+    override_dirname: data=full,filters=e,gpu=2,loss.ltv=false,name=full_data-illuCos-onlyE
     id: ???
     num: ???
     config_name: config

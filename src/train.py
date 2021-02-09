@@ -109,8 +109,8 @@ def main(opt):
         losses = {
             SSIM_LOSS: 0,
             L1_LOSS: 0,
-            LOCAL_SMOOTHNESS_LOSS: 0,
-            COS_SIMILARITY: 0
+            LTV_LOSS: 0,
+            COS_LOSS: 0
         }
         for batch_num, data in enumerate(trainloader, 0):
             input_batch, gt_batch, category = Variable(data[INPUT_IMG], requires_grad=False).cuda(), \

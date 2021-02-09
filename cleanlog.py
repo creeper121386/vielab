@@ -11,8 +11,8 @@ def clean(logdir):
             continue
 
         imgpath = os.path.join(dirpath, 'images')
-
-        if len(os.listdir(dirpath)) < 3 and len(os.listdir(imgpath)) < 3:
+        
+        if len(os.listdir(dirpath)) < 3 or len(os.listdir(imgpath)) < 1:
             print('clean:', dirpath)
             shutil.rmtree(dirpath)
 

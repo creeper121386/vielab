@@ -20,6 +20,9 @@ EXPNAME = 'name'
 LOSSES = 'loss'
 DATA = 'data'
 GPU = 'gpu'
+FILTERS = 'filters'
+USE_GRADUATED_FILTER = 'use_graduated_filter'
+USE_ELLIPTICAL_FILTER = 'use_elliptical_filter'
 
 # config::losses
 # LOCAL_SMOOTHNESS_LOSS = 'ltvLoss'
@@ -65,7 +68,8 @@ trainNecessaryFields = [
     DATA,
     TRANSFORMS,
     PREDICT_ILLUMINATION,
-    LOSSES
+    LOSSES,
+    FILTERS
 ]
 
 testNecessaryFields = [
@@ -74,5 +78,6 @@ testNecessaryFields = [
     CHECKPOINT_FILEPATH,
     DATA,
     TRANSFORMS,
-    PREDICT_ILLUMINATION
+    PREDICT_ILLUMINATION,
+    FILTERS
 ]

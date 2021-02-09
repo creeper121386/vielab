@@ -12,6 +12,7 @@ defaults:
   - data: full
   - loss: useall
   - trans: crop512
+  - filters: useall
 
 hydra:
   run:

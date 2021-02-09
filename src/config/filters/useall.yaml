@@ -1,0 +1,4 @@
+# @package _group_
+
+use_graduated_filter: true
+use_elliptical_filter: true

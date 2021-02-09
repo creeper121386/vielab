@@ -89,12 +89,12 @@ class DeepLPFLoss(nn.Module):
         self.losses = {
             SSIM_LOSS: None,
             L1_LOSS: None,
-            LOCAL_SMOOTHNESS_LOSS: None,
-            COS_SIMILARITY: None
+            LTV_LOSS: None,
+            COS_LOSS: None
         }
 
-        assert LOCAL_SMOOTHNESS_LOSS in self.opt[LOSSES]
-        assert COS_SIMILARITY in self.opt[LOSSES]
+        assert LTV_LOSS in self.opt[LOSSES]
+        assert COS_LOSS in self.opt[LOSSES]
 
     def create_window(self, window_size, num_channel):
         """Window creation function for SSIM metric. Gaussian weights are applied to the window.
@@ -270,7 +270,6 @@ class DeepLPFLoss(nn.Module):
             # L1 loss
             l1_loss_value += F.l1_loss(predicted_img_lab, target_img_lab)
 
-
         l1_loss_value = l1_loss_value/num_images
         ssim_loss_value = ssim_loss_value/num_images
 
@@ -279,30 +278,31 @@ class DeepLPFLoss(nn.Module):
         self.losses[L1_LOSS] = l1_loss_value
         self.losses[SSIM_LOSS] = ssim_loss_value
 
-        
         # ─── LOCAL SMOOTHNESS LOSS ───────────────────────────────────────
-        ltvWeight = self.opt[LOSSES][LOCAL_SMOOTHNESS_LOSS]
+        ltvWeight = self.opt[LOSSES][LTV_LOSS]
 
         if ltvWeight:
             assert type(ltvWeight + 0.1) == float
 
             if self.opt[PREDICT_ILLUMINATION]:
-                # apply ltv loss on illumination: 
+                # apply ltv loss on illumination:
                 assert PREDICT_ILLUMINATION in outputDict
                 img_key = PREDICT_ILLUMINATION
             else:
                 img_key = OUTPUT
 
-            self.losses[LOCAL_SMOOTHNESS_LOSS] = self.ltv(outputDict[INPUT], outputDict[img_key], ltvWeight)
-            deeplpf_loss += self.losses[LOCAL_SMOOTHNESS_LOSS]
+            self.losses[LTV_LOSS] = self.ltv(
+                outputDict[INPUT], outputDict[img_key], ltvWeight)
+            deeplpf_loss += self.losses[LTV_LOSS]
 
         # ─── COS SIMILARITY ──────────────────────────────────────────────
-        cosWeight = self.opt[LOSSES][COS_SIMILARITY]
+        cosWeight = self.opt[LOSSES][COS_LOSS]
         if cosWeight:
             assert type(cosWeight + 0.1) == float
 
-            cos_loss = self.cos(predicted_img_batch, target_img_batch).mean() * cosWeight
-            self.losses[COS_SIMILARITY] = cos_loss
+            cos_loss = self.cos(predicted_img_batch,
+                                target_img_batch).mean() * cosWeight
+            self.losses[COS_LOSS] = cos_loss
             deeplpf_loss += cos_loss
         # ─────────────────────────────────────────────────────────────────
 
@@ -1011,7 +1011,7 @@ class GlobalPoolingBlock(Block, nn.Module):
 class DeepLPFParameterPrediction(nn.Module):
     import torch.nn.functional as F
 
-    def __init__(self, num_in_channels=64, num_out_channels=64, batch_size=1):
+    def __init__(self, opt, num_in_channels=64, num_out_channels=64, batch_size=1):
         """Initialisation function
 
         :param num_in_channels:  Number of input feature maps
@@ -1022,6 +1022,7 @@ class DeepLPFParameterPrediction(nn.Module):
 
         """
         super(DeepLPFParameterPrediction, self).__init__()
+        self.opt = opt
         self.num_in_channels = num_in_channels
         self.num_out_channels = num_out_channels
         self.cubic_filter = CubicFilter()
@@ -1043,9 +1044,8 @@ class DeepLPFParameterPrediction(nn.Module):
         img = x[:, 0:3, :, :]
 
         torch.cuda.empty_cache()
-        shape = x.shape
-
-        img_clamped = torch.clamp(img, 0, 1)
+        # shape = x.shape
+        # img_clamped = torch.clamp(img, 0, 1)
 
         # "mask" means filter(image).
         img_cubic = self.cubic_filter.get_cubic_mask(feat, img)
@@ -1054,13 +1054,34 @@ class DeepLPFParameterPrediction(nn.Module):
         mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
             feat, img)
 
-        # Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
-        mask_scale_fuse = torch.clamp(
-            mask_scale_graduated+mask_scale_elliptical, 0, 2)
-        img_fuse = torch.clamp(img_cubic * mask_scale_fuse, 0, 1)
+        '''
+        img     ---poly->           img_cubic
+        img     ---graduated->      mask_scale_graduated
+        img     ---elliptical->     mask_scale_elliptical
+        (mask_scale_graduated + mask_scale_elliptical) * img_cubic --> res
+        '''
 
+        # Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
+        use_e = self.opt[FILTERS][USE_ELLIPTICAL_FILTER]
+        use_g = self.opt[FILTERS][USE_GRADUATED_FILTER]
+
+        if not use_e and not use_g:
+            # no need for fusion
+            res_residual = torch.clamp(img_cubic, 0, 1)
+        else:
+            if use_e and use_g:
+                mask_scale_fuse = torch.clamp(
+                    mask_scale_graduated+mask_scale_elliptical, 0, 2)
+
+            elif use_e and not use_g:
+                mask_scale_fuse = torch.clamp(mask_scale_elliptical, 0, 1)
+            elif use_g and not use_e:
+                mask_scale_fuse = torch.clamp(mask_scale_graduated, 0, 1)
+
+            res_residual = torch.clamp(img_cubic * mask_scale_fuse, 0, 1)
+            
         # Y = Y1 + Y3 :
-        img = torch.clamp(img_fuse+img, 0, 1)
+        img = torch.clamp(res_residual+img, 0, 1)
 
         return img
 
@@ -1077,7 +1098,7 @@ class DeepLPFNet(nn.Module):
         super(DeepLPFNet, self).__init__()
         self.opt = opt
         self.backbonenet = unet.UNetModel()
-        self.deeplpfnet = DeepLPFParameterPrediction()
+        self.deeplpfnet = DeepLPFParameterPrediction(opt)
 
     def forward(self, input):
         """Neural network forward function

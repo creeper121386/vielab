@@ -1,2 +1,5 @@
-- gpu=3
-- loss.ltvLoss=false
+- gpu=2
+- loss.ltv=false
+- name=full_data-illuCos-onlyE
+- data=full
+- filters=e

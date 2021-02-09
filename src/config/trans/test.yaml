@@ -1,0 +1,6 @@
+# @package _group_
+
+crop: false # crop size, false for not cropping.
+resize: false # downsample factor. 0.x for upsample; false for not resizing.
+h-flip: false
+v-flip: false
