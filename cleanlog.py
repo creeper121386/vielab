@@ -7,7 +7,7 @@ def clean(logdir):
     for dirname in os.listdir(logdir):
         dirpath = osp.join(logdir, dirname)
 
-        if not osp.isdir(dirpath):
+        if not osp.isdir(dirpath) or dirname =='archive':
             continue
 
         imgpath = os.path.join(dirpath, 'images')

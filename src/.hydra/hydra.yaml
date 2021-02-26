@@ -106,14 +106,14 @@ hydra:
   overrides:
     hydra: []
     task:
-    - gpu=2
-    - loss.ltv=false
-    - name=full_data-illuCos-onlyE
-    - data=full
-    - filters=e
+    - name=data-testing_data_new_model-onlyG1000
+    - model_path=../train_log/full_data-illuCos-onlyG_2021-02-09_17:21:18/deep_lpf_1000
+    - trans=test
+    - data=testing_data_new
+    - gpu=3
   job:
-    name: train
-    override_dirname: data=full,filters=e,gpu=2,loss.ltv=false,name=full_data-illuCos-onlyE
+    name: test
+    override_dirname: data=testing_data_new,gpu=3,model_path=../train_log/full_data-illuCos-onlyG_2021-02-09_17:21:18/deep_lpf_1000,name=data-testing_data_new_model-onlyG1000,trans=test
     id: ???
     num: ???
     config_name: config

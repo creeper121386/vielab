@@ -1049,10 +1049,6 @@ class DeepLPFParameterPrediction(nn.Module):
 
         # "mask" means filter(image).
         img_cubic = self.cubic_filter.get_cubic_mask(feat, img)
-        mask_scale_graduated = self.graduated_filter.get_graduated_mask(
-            feat, img)
-        mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
-            feat, img)
 
         '''
         img     ---poly->           img_cubic
@@ -1069,6 +1065,11 @@ class DeepLPFParameterPrediction(nn.Module):
             # no need for fusion
             res_residual = torch.clamp(img_cubic, 0, 1)
         else:
+            mask_scale_graduated = self.graduated_filter.get_graduated_mask(
+                feat, img)
+            mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
+                feat, img)
+                
             if use_e and use_g:
                 mask_scale_fuse = torch.clamp(
                     mask_scale_graduated+mask_scale_elliptical, 0, 2)

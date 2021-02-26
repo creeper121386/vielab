@@ -1,0 +1,6 @@
+# @package _group_
+# 0202数据中，russia坦克在夜间行驶的视频
+# 没有GT，只用作测试数据
+
+GT_dirpath: /data1/why/data/暗光增强/RAF
+input_dirpath: /data1/why/data/暗光增强/RAF
