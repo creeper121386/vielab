@@ -32,6 +32,7 @@ def get_transform(opt):
     transformList.append(transforms.ToTensor())
     return transforms.Compose(transformList)
 
+
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TRAIN)
@@ -131,11 +132,12 @@ def main(opt):
                     img_dirpath, f'epoch{epoch}_iter{iternum}.png'))
 
                 if PREDICT_ILLUMINATION in outputDict:
-                    illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
+                    illuminationPath = os.path.join(
+                        log_dirpath, PREDICT_ILLUMINATION)
                     if not os.path.exists(illuminationPath):
                         os.makedirs(illuminationPath)
-                    saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(illuminationPath, f'epoch{epoch}_iter{iternum}.png'))
-
+                    saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(
+                        illuminationPath, f'epoch{epoch}_iter{iternum}.png'))
 
             loss = criterion(outputDict, gt_batch)
 
@@ -167,8 +169,8 @@ def main(opt):
 
                     writer.add_scalar('Train-Loss/' + k, lossValue, iternum)
 
-
-            writer.add_scalar('Train-Loss/TotalLoss', running_loss / examples, iternum)
+            writer.add_scalar('Train-Loss/TotalLoss',
+                              running_loss / examples, iternum)
             info += 'Total loss: %.10f' % (running_loss / examples)
 
             if iternum % log_every == 0:
@@ -184,7 +186,6 @@ def main(opt):
     torch.save(net.state_dict(), snapshot_path)
 
     writer.close()
-
 
 
 if __name__ == "__main__":

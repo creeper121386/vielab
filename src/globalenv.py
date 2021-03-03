@@ -5,6 +5,9 @@ Put read-only global variables here.
 from rich.console import Console
 console = Console()
 
+# Path
+EVAL_RESULT_PATH = '../eval_results/'
+
 # config.yml
 PREDICT_ILLUMINATION = 'predict_illumination'
 CHECKPOINT_FILEPATH = 'model_path'
@@ -30,7 +33,7 @@ LTV_LOSS = 'ltv'
 COS_LOSS = 'cos'
 SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
-STRING_FALSE= 'False'
+STRING_FALSE = 'False'
 
 
 # config::transforms
