@@ -13,8 +13,8 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
-import model
-from data import Adobe5kDataLoader, Dataset
+from model.DeepLPF import DeepLPFNet
+from data import Dataset
 from globalenv import *
 import glob
 

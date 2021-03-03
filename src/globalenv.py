@@ -4,6 +4,13 @@ Put read-only global variables here.
 '''
 from rich.console import Console
 console = Console()
+from model.DeepLPF import DeepLPFNet
+
+# Models-mapping
+MODEL_ZOO = {
+    'deeplpf': DeepLPFNet,
+    '3dlut': None
+}
 
 # Path
 EVAL_RESULT_PATH = '../eval_results/'
@@ -16,7 +23,7 @@ TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT_DIRPATH = 'input_dirpath'
 VALID_EVERY = 'valid_every'
 GT_DIRPATH = 'GT_dirpath'
-TRANSFORMS = 'trans'
+TRANSFORMS = 'aug'
 NUM_EPOCH = 'num_epoch'
 LOG_EVERY = 'log_every'
 EXPNAME = 'name'

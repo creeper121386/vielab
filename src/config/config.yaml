@@ -1,3 +1,4 @@
+# general config:
 name: default_name
 num_epoch: 1000
 gpu: 1
@@ -11,8 +12,9 @@ predict_illumination: true
 defaults: 
   - data: full
   - loss: useall
-  - trans: crop512
+  - aug: crop512
   - filters: useall
+  - model: deeplpf
 
 hydra:
   run:

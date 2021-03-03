@@ -14,7 +14,7 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
-import model
+from model.DeepLPF import DeepLPFNet, DeepLPFLoss
 from data import Dataset
 writer = SummaryWriter()
 
@@ -59,7 +59,7 @@ def main(opt):
 
     trainloader = torch.utils.data.DataLoader(training_dataset, batch_size=1, shuffle=True,
                                               num_workers=4)
-    net = model.DeepLPFNet(opt)
+    net = DeepLPFNet(opt)
     start_epoch = 0
 
     # ─── PRINT NET LAYERS ───────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ def main(opt):
     #         print(name)
     # ───  ───────────────────────────────────────────────────────────────────────────
 
-    criterion = model.DeepLPFLoss(opt, ssim_window_size=5)
+    criterion = DeepLPFLoss(opt, ssim_window_size=5)
 
     console.log('Model initialization finished.')
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters(
