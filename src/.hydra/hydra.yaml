@@ -106,20 +106,20 @@ hydra:
   overrides:
     hydra: []
     task:
-      - data=local-debug
+    - data=local-debug
   job:
-    name: train
+    name: test
     override_dirname: data=local-debug
     id: ???
     num: ???
     config_name: config
-    env_set: { }
-    env_copy: [ ]
+    env_set: {}
+    env_copy: []
     config:
       override_dirname:
         kv_sep: '='
         item_sep: ','
-        exclude_keys: [ ]
+        exclude_keys: []
   runtime:
     version: 1.0.6
     cwd: /Users/why/dev/pycharm-project/vielab/src

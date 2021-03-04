@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from data import Dataset
 from globalenv import *
-from model.DeepLPF import DeepLPFNet, DeepLPFLoss
+from src.model.DeepLPF import DeepLPFNet, DeepLPFLoss
 from util import checkConfig, saveTensorAsImg, configLogging
 
 writer = SummaryWriter()

@@ -14,6 +14,7 @@ from torch.autograd import Variable
 
 from data import Dataset
 from globalenv import *
+from model.DeepLPF import DeepLPFNet
 from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
 
