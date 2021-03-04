@@ -1,37 +1,35 @@
 # -*- coding: utf-8 -*-
+import glob
 import math
 import os
 import os.path as osp
 
 import cv2
-# import matplotlib
-import numpy as np
 import hydra
+import numpy as np
 import torch
-from PIL import Image
 import torchvision.transforms as transforms
+from PIL import Image
 from torch.autograd import Variable
-from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
-from model.DeepLPF import DeepLPFNet
 from data import Dataset
 from globalenv import *
-import glob
+from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
-    mse = np.mean((img1 - img2)**2)
+    mse = np.mean((img1 - img2) ** 2)
     if mse == 0:
         return float('inf')
     return 20 * math.log10(255.0 / math.sqrt(mse))
 
 
 def ssim_com(img1, img2):
-    C1 = (0.01 * 255)**2
-    C2 = (0.03 * 255)**2
+    C1 = (0.01 * 255) ** 2
+    C2 = (0.03 * 255) ** 2
 
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
@@ -40,11 +38,11 @@ def ssim_com(img1, img2):
 
     mu1 = cv2.filter2D(img1, -1, window)[5:-5, 5:-5]  # valid
     mu2 = cv2.filter2D(img2, -1, window)[5:-5, 5:-5]
-    mu1_sq = mu1**2
-    mu2_sq = mu2**2
+    mu1_sq = mu1 ** 2
+    mu2_sq = mu2 ** 2
     mu1_mu2 = mu1 * mu2
-    sigma1_sq = cv2.filter2D(img1**2, -1, window)[5:-5, 5:-5] - mu1_sq
-    sigma2_sq = cv2.filter2D(img2**2, -1, window)[5:-5, 5:-5] - mu2_sq
+    sigma1_sq = cv2.filter2D(img1 ** 2, -1, window)[5:-5, 5:-5] - mu1_sq
+    sigma2_sq = cv2.filter2D(img2 ** 2, -1, window)[5:-5, 5:-5] - mu2_sq
     sigma12 = cv2.filter2D(img1 * img2, -1, window)[5:-5, 5:-5] - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) *
@@ -53,10 +51,11 @@ def ssim_com(img1, img2):
 
 
 def calculate_ssim(img1, img2):
-    '''calculate SSIM
+    """
+    calculate SSIM
     the same outputs as MATLAB's
     img1, img2: [0, 255]
-    '''
+    """
     if not img1.shape == img2.shape:
         raise ValueError('Input images must have the same dimensions.')
     if img1.ndim == 2:
@@ -76,7 +75,7 @@ def calculate_ssim(img1, img2):
 def testWithGT(opt, log_dirpath, img_dirpath, net):
     testdata = Dataset(opt, data_dict=None, transform=transforms.Compose(
         [transforms.ToPILImage(), transforms.ToTensor()]),
-        normaliser=2 ** 8 - 1, is_valid=False)
+                       normaliser=2 ** 8 - 1, is_valid=False)
 
     dataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False,
                                              num_workers=4)
@@ -88,26 +87,29 @@ def testWithGT(opt, log_dirpath, img_dirpath, net):
             continue
         '''
 
-        x, y, category = Variable(data[INPUT_IMG], requires_grad=False).cuda(), \
-            Variable(data[OUTPUT_IMG], requires_grad=False).cuda(), \
-            data[NAME]
+        x, y, category = Variable(data[INPUT_IMG], requires_grad=False), \
+                         Variable(data[OUTPUT_IMG], requires_grad=False), \
+                         data[NAME]
+
+        if CUDA_AVAILABLE:
+            x, y = x.cuda(), y.cuda()
 
         path_split = category[0].split('/')
         path_id = path_split[-1].split('.jpg')[0]
 
         with torch.no_grad():
-            outputDict = net(x)
-            output = torch.clamp(outputDict[OUTPUT], 0.0, 1.0)
+            output_dict = net(x)
+            output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
         saveTensorAsImg(output, os.path.join(img_dirpath, path_id + '.jpg'))
 
-        if PREDICT_ILLUMINATION in outputDict:
+        if PREDICT_ILLUMINATION in output_dict:
             # import ipdb; ipdb.set_trace()
-            illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
-            if not os.path.exists(illuminationPath):
-                os.makedirs(illuminationPath)
-            saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(
-                illuminationPath, path_id + '.jpg'))
+            illumination_path = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
+            if not os.path.exists(illumination_path):
+                os.makedirs(illumination_path)
+            saveTensorAsImg(output_dict[PREDICT_ILLUMINATION], os.path.join(
+                illumination_path, path_id + '.jpg'))
 
         # ─── CALCULATE METRICS ───────────────────────────────────────────
         output_ = output.clone().detach().cpu().numpy()
@@ -130,46 +132,47 @@ count = 0
 
 
 def evalWithoutGT(opt, log_dirpath, img_dirpath, net, path):
+    global count
     count += 1
     console.log(f'[[Eval {count}]] Now processing {path}')
     x = torch.Tensor(Image.open(path))
     fname = osp.basename(path)
 
     with torch.no_grad():
-        outputDict = net(x)
-        output = torch.clamp(outputDict[OUTPUT], 0.0, 1.0)
+        output_dict = net(x)
+        output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
     saveTensorAsImg(output, os.path.join(img_dirpath, fname))
 
-    if PREDICT_ILLUMINATION in outputDict:
+    if PREDICT_ILLUMINATION in output_dict:
         # import ipdb; ipdb.set_trace()
-        illuminationPath = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
-        if not os.path.exists(illuminationPath):
-            os.makedirs(illuminationPath)
-        saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(
-            illuminationPath, fname))
+        illumination_path = os.path.join(log_dirpath, PREDICT_ILLUMINATION)
+        if not os.path.exists(illumination_path):
+            os.makedirs(illumination_path)
+        saveTensorAsImg(output_dict[PREDICT_ILLUMINATION], os.path.join(
+            illumination_path, fname))
     return output.clone().detach().cpu().numpy()
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TEST)
-
     checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
-
-    torch.cuda.set_device(opt[GPU])
-    console.log('Current cuda device:', torch.cuda.current_device())
+    if CUDA_AVAILABLE:
+        torch.cuda.set_device(opt[GPU])
+        console.log('Current cuda device:', torch.cuda.current_device())
     log_dirpath, img_dirpath = configLogging(TEST, opt)
 
-    net = model.DeepLPFNet(opt)
+    net = DeepLPFNet(opt)
     para = torch.load(checkpoint_filepath,
                       map_location=lambda storage, location: storage)
-    # switch model to evaluation mode
-    net.load_state_dict(para)
-    net.eval()
-    net.cuda()
 
-    # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
+    # switch model to evaluation mode:
+    net.load_state_dict(para).eval()
+    if CUDA_AVAILABLE:
+        net.cuda()
+
+    # load data:
     if opt[DATA][GT_DIRPATH]:
         testWithGT(opt, log_dirpath, img_dirpath, net)
     else:

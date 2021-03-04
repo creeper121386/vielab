@@ -4,8 +4,8 @@ vielab means Video / Image Enhancement Lab, containing multiple kinds of deep le
 
 methods list:
 
-- [] DeepLPF
-- [] 3D-LUT
+- [ ] DeepLPF
+- [ ] 3D-LUT
 
 ## Config
 

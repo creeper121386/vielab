@@ -2,35 +2,34 @@
 import logging
 import os
 import os.path as osp
-from globalenv import *
 
-import torch
-from util import checkConfig, saveTensorAsImg, configLogging
 import hydra
-# from omegaconf import DictConfig, OmegaConf
-
+import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
-from model.DeepLPF import DeepLPFNet, DeepLPFLoss
 from data import Dataset
+from globalenv import *
+from model.DeepLPF import DeepLPFNet, DeepLPFLoss
+from util import checkConfig, saveTensorAsImg, configLogging
+
 writer = SummaryWriter()
 
 
 def get_transform(opt):
-    transformConfig = opt[TRANSFORMS]
+    transform_config = opt[TRANSFORMS]
 
-    transformList = [transforms.ToPILImage(), ]
-    if transformConfig[HORIZON_FLIP]:
-        transformList.append(transforms.RandomHorizontalFlip())
+    transform_list = [transforms.ToPILImage(), ]
+    if transform_config[HORIZON_FLIP]:
+        transform_list.append(transforms.RandomHorizontalFlip())
 
-    elif transformConfig[VERTICAL_FLIP]:
-        transformList.append(transforms.RandomVerticalFlip())
+    elif transform_config[VERTICAL_FLIP]:
+        transform_list.append(transforms.RandomVerticalFlip())
 
-    transformList.append(transforms.ToTensor())
-    return transforms.Compose(transformList)
+    transform_list.append(transforms.ToTensor())
+    return transforms.Compose(transform_list)
 
 
 @hydra.main(config_path='config', config_name="config")
@@ -38,22 +37,21 @@ def main(opt):
     opt = checkConfig(opt, TRAIN)
 
     num_epoch = opt[NUM_EPOCH]
-    valid_every = opt[VALID_EVERY]
+    # valid_every = opt[VALID_EVERY]
     checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
     save_every = opt[SAVE_MODEL_EVERY]
     log_every = opt[LOG_EVERY]
 
-    torch.cuda.set_device(opt[GPU])
-    console.log('Current cuda device:', torch.cuda.current_device())
+    if CUDA_AVAILABLE:
+        torch.cuda.set_device(opt[GPU])
+        console.log('Current cuda device:', torch.cuda.current_device())
 
-    console.log('Paramters:', opt, log_locals=False)
+    console.log('Parameters:', opt, log_locals=False)
 
-    # ─── CONFIG LOGGING ─────────────────────────────────────────────────────────────
     log_dirpath, img_dirpath = configLogging(TRAIN, opt)
 
-    # ─── LOAD DATA ──────────────────────────────────────────────────────────────────
+    ## Loading data:
     transform = get_transform(opt)
-
     training_dataset = Dataset(opt, data_dict=None, transform=transform,
                                normaliser=2 ** 8 - 1, is_valid=False)
 
@@ -76,18 +74,19 @@ def main(opt):
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters(
     )), lr=1e-4, betas=(0.9, 0.999), eps=1e-08)
 
-    best_valid_psnr = 0.0
+    # best_valid_psnr = 0.0
 
-    alpha = 0.0
+    # alpha = 0.0
     optimizer.zero_grad()
     net.train()
 
-    running_loss = 0.0
-    examples = 0
-    psnr_avg = 0.0
-    ssim_avg = 0.0
+    # running_loss = 0.0
+    # examples = 0
+    # psnr_avg = 0.0
+    # ssim_avg = 0.0
     batch_size = 1
-    net.cuda()
+    if CUDA_AVAILABLE:
+        net.cuda()
 
     if checkpoint_filepath:
         para = torch.load(checkpoint_filepath,
@@ -100,7 +99,7 @@ def main(opt):
         start_epoch = int(start_epoch)
 
     console.log('Epoch start from:', start_epoch)
-    iternum = 0
+    iter_num = 0
     for epoch in range(start_epoch, num_epoch, 1):
 
         # Train loss
@@ -114,32 +113,34 @@ def main(opt):
             COS_LOSS: 0
         }
         for batch_num, data in enumerate(trainloader, 0):
-            input_batch, gt_batch, category = Variable(data[INPUT_IMG], requires_grad=False).cuda(), \
-                Variable(data[OUTPUT_IMG],
-                         requires_grad=False).cuda(), data[NAME]
+            input_batch, gt_batch, category = Variable(data[INPUT_IMG], requires_grad=False), \
+                                              Variable(data[OUTPUT_IMG],
+                                                       requires_grad=False), data[NAME]
+            if CUDA_AVAILABLE:
+                input_batch, gt_batch = input_batch.cuda(), gt_batch.cuda()
 
             # saveTensorAsImg(input_batch, 'debug/i.png')
             # saveTensorAsImg(gt_batch, 'debug/o.png')
 
-            outputDict = net(input_batch)
+            output_dict = net(input_batch)
 
             output = torch.clamp(
-                outputDict[OUTPUT], 0.0, 1.0)
+                output_dict[OUTPUT], 0.0, 1.0)
 
             # ─── SAVE LOG ────────────────────────────────────────────────────
-            if iternum % 500 == 0:
+            if iter_num % 500 == 0:
                 saveTensorAsImg(output, osp.join(
-                    img_dirpath, f'epoch{epoch}_iter{iternum}.png'))
+                    img_dirpath, f'epoch{epoch}_iter{iter_num}.png'))
 
-                if PREDICT_ILLUMINATION in outputDict:
-                    illuminationPath = os.path.join(
+                if PREDICT_ILLUMINATION in output_dict:
+                    illumination_path = os.path.join(
                         log_dirpath, PREDICT_ILLUMINATION)
-                    if not os.path.exists(illuminationPath):
-                        os.makedirs(illuminationPath)
-                    saveTensorAsImg(outputDict[PREDICT_ILLUMINATION], os.path.join(
-                        illuminationPath, f'epoch{epoch}_iter{iternum}.png'))
+                    if not os.path.exists(illumination_path):
+                        os.makedirs(illumination_path)
+                    saveTensorAsImg(output_dict[PREDICT_ILLUMINATION], os.path.join(
+                        illumination_path, f'epoch{epoch}_iter{iter_num}.png'))
 
-            loss = criterion(outputDict, gt_batch)
+            loss = criterion(output_dict, gt_batch)
 
             this_losses = criterion.get_currnet_loss()
             for k in losses:
@@ -155,25 +156,25 @@ def main(opt):
             running_loss += loss.data[0]
             examples += batch_size
 
-            iternum += 1
+            iter_num += 1
 
             # ─── LOGGING LOSSES ──────────────────────────────────────────────
-            info = '[%d] iter: %d, ' % (epoch + 1, iternum)
+            info = '[%d] iter: %d, ' % (epoch + 1, iter_num)
             for k in losses:
                 if type(losses[k]) != torch.Tensor:
-                    lossValue = losses[k]
-                    info += f'{k}: {lossValue}, '
+                    loss_value = losses[k]
+                    info += f'{k}: {loss_value}, '
                 else:
-                    lossValue = float(losses[k] / examples)
-                    info += f'{k}: {lossValue:.5f}, '
+                    loss_value = float(losses[k] / examples)
+                    info += f'{k}: {loss_value:.5f}, '
 
-                    writer.add_scalar('Train-Loss/' + k, lossValue, iternum)
+                    writer.add_scalar('Train-Loss/' + k, loss_value, iter_num)
 
             writer.add_scalar('Train-Loss/TotalLoss',
-                              running_loss / examples, iternum)
+                              running_loss / examples, iter_num)
             info += 'Total loss: %.10f' % (running_loss / examples)
 
-            if iternum % log_every == 0:
+            if iter_num % log_every == 0:
                 logging.info(info)
 
         if epoch % save_every == 0:
