@@ -106,10 +106,10 @@ hydra:
   overrides:
     hydra: []
     task:
-    - data=local-debug
+    - ds=local-debug
   job:
-    name: test
-    override_dirname: data=local-debug
+    name: train
+    override_dirname: ds=local-debug
     id: ???
     num: ???
     config_name: config

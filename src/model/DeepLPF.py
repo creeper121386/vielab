@@ -26,7 +26,6 @@ from .basic_loss import LTVloss
 
 # matplotlib.use('agg')
 
-
 print('Pytorch Version:', torch.__version__)
 # np.set_printoptions(threshold=np.nan)
 

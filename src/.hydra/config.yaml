@@ -6,7 +6,7 @@ log_every: 100
 save_model_every: 20
 model_path: false
 predict_illumination: true
-data\:
+ds:
   GT_dirpath: /Users/why/dev/dataset/vielab-debug/gt
   input_dirpath: /Users/why/dev/dataset/vielab-debug/input
 loss:

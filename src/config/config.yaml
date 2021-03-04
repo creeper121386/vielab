@@ -10,7 +10,7 @@ model_path: false # false for no checkpoint
 predict_illumination: true
 
 defaults: 
-  - data: full
+  - ds: full
   - loss: useall
   - aug: crop512
   - filters: useall
