@@ -11,29 +11,28 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
          Pierre Marza (pierre.marza@gmail.com)
 
 '''
-from torch.autograd import Variable
-from skimage import measure
-
-# from skimage.measure import compare_ssim as ssim
-from matplotlib.image import imread, imsave
-import torch
-import numpy as np
+import datetime
+import logging
 import os
 import os.path as osp
+
 import cv2
+import numpy as np
+import torch
 # import matplotlib
 import yaml
-import logging
-import datetime
-from globalenv import *
+# from skimage.measure import compare_ssim as ssim
+from matplotlib.image import imread
+from skimage import measure
+from torch.autograd import Variable
 
-# matplotlib.use('agg')
+from globalenv import G
 
 
 def configLogging(mode, opt):
-    log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
-        datetime.datetime.now().strftime(TIME_FORMAT)
-    img_dirpath = osp.join(log_dirpath, IMAGES)
+    log_dirpath = f"../{mode}_log/{opt[G.EXPNAME]}_" + \
+                  datetime.datetime.now().strftime(G.TIME_FORMAT)
+    img_dirpath = osp.join(log_dirpath, G.IMAGES)
 
     os.makedirs(log_dirpath)
     os.makedirs(img_dirpath)
@@ -68,10 +67,11 @@ def saveTensorAsImg(output, path, resize=False):
 
 
 def checkConfig(opt, mode):
-    if mode == TRAIN:
-        necessaryFields = trainNecessaryFields
-    elif mode == TEST:
-        necessaryFields = testNecessaryFields
+    # global TRAIN_MODE, TEST_MODE
+    if mode == G.TRAIN_MODE:
+        necessaryFields = G.trainNecessaryFields
+    elif mode == G.TEST_MODE:
+        necessaryFields = G.testNecessaryFields
     else:
         raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
 
@@ -80,7 +80,7 @@ def checkConfig(opt, mode):
             assert x in opt
         except:
             print('Field missing:', x)
-            
+
     return opt
 
 
