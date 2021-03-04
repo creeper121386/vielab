@@ -1,0 +1,5 @@
+# @package _group_
+# 没有任何实际含义，仅做测试用
+
+GT_dirpath: /data1/why/data/vielab-debug/gt
+input_dirpath: /data1/why/data/vielab-debug/input

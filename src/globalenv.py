@@ -15,7 +15,7 @@ EVAL_RESULT_PATH = '../eval_results/'
 
 # config.yml
 PREDICT_ILLUMINATION = 'predict_illumination'
-CHECKPOINT_FILEPATH = 'model_path'
+MODEL_PATH = 'model_path'
 SAVE_MODEL_EVERY = 'save_model_every'
 TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT_DIRPATH = 'input_dirpath'
@@ -70,7 +70,7 @@ trainNecessaryFields = [
     VALID_EVERY,
     LOG_EVERY,
     SAVE_MODEL_EVERY,
-    CHECKPOINT_FILEPATH,
+    MODEL_PATH,
     DATA,
     TRANSFORMS,
     PREDICT_ILLUMINATION,
@@ -81,7 +81,7 @@ trainNecessaryFields = [
 testNecessaryFields = [
     EXPNAME,
     GPU,
-    CHECKPOINT_FILEPATH,
+    MODEL_PATH,
     DATA,
     TRANSFORMS,
     PREDICT_ILLUMINATION,

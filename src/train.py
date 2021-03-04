@@ -7,12 +7,11 @@ import hydra
 import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
-from torch.autograd import Variable
-from torch.utils.tensorboard import SummaryWriter
-
 from data import Dataset
 from globalenv import *
 from model.DeepLPF import DeepLPFNet, DeepLPFLoss
+from torch.autograd import Variable
+from torch.utils.tensorboard import SummaryWriter
 from util import checkConfig, saveTensorAsImg, configLogging
 
 writer = SummaryWriter()
@@ -38,7 +37,7 @@ def main(opt):
 
     num_epoch = opt[NUM_EPOCH]
     # valid_every = opt[VALID_EVERY]
-    checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
+    checkpoint_filepath = opt[MODEL_PATH]
     save_every = opt[SAVE_MODEL_EVERY]
     log_every = opt[LOG_EVERY]
 

@@ -10,11 +10,10 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.autograd import Variable
-
 from data import Dataset
 from globalenv import *
 from model.DeepLPF import DeepLPFNet
+from torch.autograd import Variable
 from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
 
@@ -158,7 +157,7 @@ def evalWithoutGT(opt, log_dirpath, img_dirpath, net, path):
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TEST)
-    checkpoint_filepath = opt[CHECKPOINT_FILEPATH]
+    checkpoint_filepath = opt[MODEL_PATH]
     if CUDA_AVAILABLE:
         torch.cuda.set_device(opt[GPU])
         console.log('Current cuda device:', torch.cuda.current_device())
@@ -169,7 +168,8 @@ def main(opt):
                       map_location=lambda storage, location: storage)
 
     # switch model to evaluation mode:
-    net.load_state_dict(para).eval()
+    net.load_state_dict(para)
+    net.eval()
     if CUDA_AVAILABLE:
         net.cuda()
 
