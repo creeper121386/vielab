@@ -26,13 +26,16 @@ from matplotlib.image import imread
 from skimage import measure
 from torch.autograd import Variable
 
-from globalenv import G
+from globalenv import *
+
+
+# matplotlib.use('agg')
 
 
 def configLogging(mode, opt):
-    log_dirpath = f"../{mode}_log/{opt[G.EXPNAME]}_" + \
-                  datetime.datetime.now().strftime(G.TIME_FORMAT)
-    img_dirpath = osp.join(log_dirpath, G.IMAGES)
+    log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
+                  datetime.datetime.now().strftime(TIME_FORMAT)
+    img_dirpath = osp.join(log_dirpath, IMAGES)
 
     os.makedirs(log_dirpath)
     os.makedirs(img_dirpath)
@@ -67,11 +70,10 @@ def saveTensorAsImg(output, path, resize=False):
 
 
 def checkConfig(opt, mode):
-    # global TRAIN_MODE, TEST_MODE
-    if mode == G.TRAIN_MODE:
-        necessaryFields = G.trainNecessaryFields
-    elif mode == G.TEST_MODE:
-        necessaryFields = G.testNecessaryFields
+    if mode == TRAIN:
+        necessaryFields = trainNecessaryFields
+    elif mode == TEST:
+        necessaryFields = testNecessaryFields
     else:
         raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
 
