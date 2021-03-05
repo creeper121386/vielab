@@ -29,8 +29,8 @@ LOSSES = 'loss'
 DATA = 'ds'
 GPU = 'gpu'
 FILTERS = 'filters'
-USE_GRADUATED_FILTER = 'use_graduated_filter'
-USE_ELLIPTICAL_FILTER = 'use_elliptical_filter'
+USE_GRADUATED_FILTER = 'g'
+USE_ELLIPTICAL_FILTER = 'e'
 
 # config::losses
 # LOCAL_SMOOTHNESS_LOSS = 'ltvLoss'
@@ -46,7 +46,7 @@ HORIZON_FLIP = 'h-flip'
 RESIZE = 'resize'
 CROP = 'crop'
 
-# model.py
+# runtime.py
 INPUT = 'input'
 OUTPUT = 'output'
 
@@ -61,7 +61,7 @@ TEST = 'test'
 
 # file / dir name
 IMAGES = 'images'
-MODELNAME = 'deep_lpf'
+RUNTIME = 'runtime'
 
 trainNecessaryFields = [
     EXPNAME,

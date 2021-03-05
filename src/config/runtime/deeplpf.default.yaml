@@ -1,0 +1,7 @@
+# @package _group_
+
+modelname: deeplpf
+predict_illumination: true
+filters:
+  - g: true   # if use_graduated_filter
+  - e: true   # if use_elliptical_filter

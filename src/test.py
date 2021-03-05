@@ -167,7 +167,7 @@ def main(opt):
     para = torch.load(checkpoint_filepath,
                       map_location=lambda storage, location: storage)
 
-    # switch model to evaluation mode:
+    # switch runtime to evaluation mode:
     net.load_state_dict(para)
     net.eval()
     if CUDA_AVAILABLE:

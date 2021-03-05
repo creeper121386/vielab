@@ -1,5 +1,0 @@
-# @package _group_
-
-# use elliptical filter with cubic filter.
-use_graduated_filter: false
-use_elliptical_filter: true

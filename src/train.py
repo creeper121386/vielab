@@ -177,11 +177,11 @@ def main(opt):
                 logging.info(info)
 
         if epoch % save_every == 0:
-            snapshot_prefix = osp.join(log_dirpath, MODELNAME)
+            snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME])
             snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
             torch.save(net.state_dict(), snapshot_path)
 
-    snapshot_prefix = osp.join(log_dirpath, MODELNAME)
+    snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME])
     snapshot_path = snapshot_prefix + "_" + str(num_epoch)
     torch.save(net.state_dict(), snapshot_path)
 

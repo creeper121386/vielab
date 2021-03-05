@@ -21,19 +21,43 @@ import numpy as np
 import torch
 # import matplotlib
 import yaml
+from globalenv import *
 # from skimage.measure import compare_ssim as ssim
 from matplotlib.image import imread
 from skimage import measure
 from torch.autograd import Variable
 
-from globalenv import *
-
 
 # matplotlib.use('agg')
 
+def parseConfig(dirpath):
+    '''
+    parse structured configs from directories. The directory must contains `config.yaml` , which defines which configLogging group to choose from. For example:
+
+    config
+    ├── config.yaml
+    ├── db
+    │   ├── mysql.yaml
+    │   └── postgresql.yaml
+    ├── schema
+    │   ├── school.yaml
+    │   ├── support.yaml
+    │   └── warehouse.yaml
+    └── ui
+        ├── full.yaml
+        └── view.yaml
+
+    And the config.yaml is:
+
+    defaults:
+        - db: mysql
+        - schema: school
+        - ui: view
+    '''
+
 
 def configLogging(mode, opt):
-    log_dirpath = f"../{mode}_log/{opt[EXPNAME]}_" + \
+    log_dirpath = f"../{mode}_log/{opt[RUNTIME]}/{opt[EXPNAME]}_" + \
                   datetime.datetime.now().strftime(TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, IMAGES)
 
@@ -75,7 +99,7 @@ def checkConfig(opt, mode):
     elif mode == TEST:
         necessaryFields = testNecessaryFields
     else:
-        raise NotImplementedError('Function[parseConfig]: unknown mode', mode)
+        raise NotImplementedError('Function[checkConfig]: unknown mode', mode)
 
     for x in necessaryFields:
         try:
@@ -86,7 +110,7 @@ def checkConfig(opt, mode):
     return opt
 
 
-def parseConfig(ymlpath, mode):
+def parseSingleYmlConfig(ymlpath, mode):
     '''
     input config file path (yml file), return config dict.
     '''

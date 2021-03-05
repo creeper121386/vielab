@@ -5,20 +5,20 @@ valid_every: 10
 log_every: 100
 save_model_every: 20
 model_path: false
-predict_illumination: true
 ds:
   GT_dirpath: /Users/why/dev/dataset/vielab-debug/gt
   input_dirpath: /Users/why/dev/dataset/vielab-debug/input
-loss:
-  ltv: false
-  cos: 0.1
 aug:
   crop: 512
   resize: false
   h-flip: true
   v-flip: true
-filters:
-  use_graduated_filter: true
-  use_elliptical_filter: true
-model:
+loss:
+  ltv: false
+  cos: 0.1
+runtime:
+  modelname: deeplpf
   predict_illumination: true
+  filters:
+    - g: true
+    - e: true

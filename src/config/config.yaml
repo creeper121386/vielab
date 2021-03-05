@@ -1,20 +1,18 @@
-# general config:
-name: default_name
+# general config for all models:
+name: default_name    # name of experiment
 num_epoch: 1000
 gpu: 1
 valid_every: 10
 log_every: 100
 save_model_every: 20
-model_path: false # false for no checkpoint
+model_path: false # false for do not load runtime. Necessary when testing.
 
-predict_illumination: true
-
-defaults: 
+# define config groups:
+defaults:
   - ds: full
-  - loss: useall
   - aug: crop512
-  - filters: useall
-  - model: deeplpf
+  - loss: useall
+  - runtime: deeplpf.default
 
 hydra:
   run:

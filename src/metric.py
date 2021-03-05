@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-from util import ImageProcessing
-from torch.autograd import Variable
-import torch
-import numpy as np
+import logging
+import os
 # import matplotlib.pyplot as plt
 import os.path
-import os
+
+import numpy as np
+import torch
 from globalenv import *
-import logging
+from torch.autograd import Variable
+from util import ImageProcessing
+
+
 # import matplotlib
 
 # matplotlib.use('agg')
@@ -53,7 +56,7 @@ class Evaluator():
         if not os.path.isdir(out_dirpath):
             os.mkdir(out_dirpath)
 
-        # switch model to evaluation mode
+        # switch runtime to evaluation mode
         net.eval()
         net.cuda()
 

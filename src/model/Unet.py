@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
-from math import sqrt
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
-from torch.nn import init
 
 
 class UNet(nn.Module):
@@ -166,7 +162,7 @@ class LocalNet(nn.Module):
 class UNetModel(nn.Module):
 
     def __init__(self):
-        """UNet model definition
+        """UNet runtime definition
 
         :returns: N/A
         :rtype: N/A
@@ -180,7 +176,7 @@ class UNetModel(nn.Module):
         self.refpad = nn.ReflectionPad2d(1)
 
     def forward(self, image):
-        """UNet model definition
+        """UNet runtime definition
 
         :param image: input image
         :returns: image features

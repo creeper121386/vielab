@@ -11,22 +11,26 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
          Pierre Marza (pierre.marza@gmail.com)
 
 '''
-from util import ImageProcessing
-from . import Unet as unet
-from torch.autograd import Variable
-import torch.nn.functional as F
-import torch.nn as nn
-import torch
-from math import exp
-import os.path
 import math
+from math import exp
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from globalenv import *
+from torch.autograd import Variable
+from util import ImageProcessing
+
+from . import Unet as unet
 from .basic_loss import LTVloss
+
 # import matplotlib
 
 # matplotlib.use('agg')
 
 print('Pytorch Version:', torch.__version__)
+
+
 # np.set_printoptions(threshold=np.nan)
 
 
@@ -245,7 +249,7 @@ class DeepLPFLoss(nn.Module):
         if ltvWeight:
             assert type(ltvWeight + 0.1) == float
 
-            if self.opt[PREDICT_ILLUMINATION]:
+            if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
                 # apply ltv loss on illumination:
                 assert PREDICT_ILLUMINATION in outputDict
                 img_key = PREDICT_ILLUMINATION
@@ -971,7 +975,6 @@ class GlobalPoolingBlock(Block, nn.Module):
 
 
 class DeepLPFParameterPrediction(nn.Module):
-    import torch.nn.functional as F
 
     def __init__(self, opt, num_in_channels=64, num_out_channels=64, batch_size=1):
         """Initialisation function
@@ -1020,8 +1023,8 @@ class DeepLPFParameterPrediction(nn.Module):
         '''
 
         # Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
-        use_e = self.opt[FILTERS][USE_ELLIPTICAL_FILTER]
-        use_g = self.opt[FILTERS][USE_GRADUATED_FILTER]
+        use_e = self.opt[RUNTIME][USE_ELLIPTICAL_FILTER]
+        use_g = self.opt[RUNTIME][USE_GRADUATED_FILTER]
 
         if not use_e and not use_g:
             # no need for fusion
@@ -1075,7 +1078,7 @@ class DeepLPFNet(nn.Module):
         output = self.deeplpfnet(feat) + 1e-8
         res = dict()
 
-        if self.opt[PREDICT_ILLUMINATION]:
+        if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
             res[PREDICT_ILLUMINATION] = output
 
             # limit (input / out) to 0 ~ 1
