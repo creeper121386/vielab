@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
-from rich.console import Console
-from globalenv import *
-
 import os.path
 import random
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from collections import defaultdict
 
 import cv2
 # import matplotlib
 import numpy as np
 import torch
+from globalenv import *
 
 # matplotlib.use('agg')
 console = Console()
@@ -71,18 +69,18 @@ class Dataset(torch.utils.data.Dataset):
         width = img.shape[1]
 
         # ─── APPLY CUSTOM TRANSFORM ──────────────────────────────────────
-        cropFactor = self.opt[TRANSFORMS][CROP]
-        resizeFactor = self.opt[TRANSFORMS][RESIZE]
+        cropFactor = self.opt[AUGMENTATION][CROP]
+        resizeFactor = self.opt[AUGMENTATION][RESIZE]
 
         # crop the image:
         if cropFactor:
             random.seed(seed)
             assert type(cropFactor) == int
 
-            rnd_h = random.randint(0, max(0, height-cropFactor))
-            rnd_w = random.randint(0, max(0, width-cropFactor))
+            rnd_h = random.randint(0, max(0, height - cropFactor))
+            rnd_w = random.randint(0, max(0, width - cropFactor))
             img = img[rnd_h:rnd_h + cropFactor,
-                      rnd_w:rnd_w + cropFactor, :]
+                  rnd_w:rnd_w + cropFactor, :]
 
         # resize the image:
         elif resizeFactor:

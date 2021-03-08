@@ -20,5 +20,5 @@ runtime:
   modelname: deeplpf
   predict_illumination: true
   filters:
-    - g: true
-    - e: true
+    g: true
+    e: true

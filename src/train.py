@@ -6,7 +6,6 @@ import os.path as osp
 import hydra
 import torch
 import torch.optim as optim
-import torchvision.transforms as transforms
 from data import Dataset
 from globalenv import *
 from model.DeepLPF import DeepLPFNet, DeepLPFLoss
@@ -17,27 +16,13 @@ from util import checkConfig, saveTensorAsImg, configLogging
 writer = SummaryWriter()
 
 
-def get_transform(opt):
-    transform_config = opt[TRANSFORMS]
-
-    transform_list = [transforms.ToPILImage(), ]
-    if transform_config[HORIZON_FLIP]:
-        transform_list.append(transforms.RandomHorizontalFlip())
-
-    elif transform_config[VERTICAL_FLIP]:
-        transform_list.append(transforms.RandomVerticalFlip())
-
-    transform_list.append(transforms.ToTensor())
-    return transforms.Compose(transform_list)
-
-
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TRAIN)
 
     num_epoch = opt[NUM_EPOCH]
     # valid_every = opt[VALID_EVERY]
-    checkpoint_filepath = opt[MODEL_PATH]
+    model_path = opt[MODEL_PATH]
     save_every = opt[SAVE_MODEL_EVERY]
     log_every = opt[LOG_EVERY]
 
@@ -50,7 +35,7 @@ def main(opt):
     log_dirpath, img_dirpath = configLogging(TRAIN, opt)
 
     ## Loading data:
-    transform = get_transform(opt)
+    transform = parseAugmentation(opt)
     training_dataset = Dataset(opt, data_dict=None, transform=transform,
                                normaliser=2 ** 8 - 1, is_valid=False)
 
@@ -87,12 +72,12 @@ def main(opt):
     if CUDA_AVAILABLE:
         net.cuda()
 
-    if checkpoint_filepath:
-        para = torch.load(checkpoint_filepath,
+    if model_path:
+        para = torch.load(model_path,
                           map_location=lambda storage, location: storage)
         net.load_state_dict(para)
 
-        base_name = osp.basename(checkpoint_filepath)
+        base_name = osp.basename(model_path)
         start_epoch = base_name.split('_')[-1]
         start_epoch = start_epoch.split('.pth')[0]
         start_epoch = int(start_epoch)
@@ -177,11 +162,11 @@ def main(opt):
                 logging.info(info)
 
         if epoch % save_every == 0:
-            snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME])
+            snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME][MODELNAME])
             snapshot_path = snapshot_prefix + "_" + str(epoch) + ".pth"
             torch.save(net.state_dict(), snapshot_path)
 
-    snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME])
+    snapshot_prefix = osp.join(log_dirpath, opt[RUNTIME][MODELNAME])
     snapshot_path = snapshot_prefix + "_" + str(num_epoch)
     torch.save(net.state_dict(), snapshot_path)
 

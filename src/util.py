@@ -56,9 +56,23 @@ def parseConfig(dirpath):
     '''
 
 
+def parseAugmentation(opt):
+    transform_config = opt[AUGMENTATION]
+
+    transform_list = [transforms.ToPILImage(), ]
+    if transform_config[HORIZON_FLIP]:
+        transform_list.append(transforms.RandomHorizontalFlip())
+
+    elif transform_config[VERTICAL_FLIP]:
+        transform_list.append(transforms.RandomVerticalFlip())
+
+    transform_list.append(transforms.ToTensor())
+    return transforms.Compose(transform_list)
+
+
 def configLogging(mode, opt):
     log_dirpath = f"../{mode}_log/{opt[RUNTIME]}/{opt[EXPNAME]}_" + \
-                  datetime.datetime.now().strftime(TIME_FORMAT)
+                  datetime.datetime.now().strftime(LOG_TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, IMAGES)
 
     os.makedirs(log_dirpath)
@@ -67,8 +81,7 @@ def configLogging(mode, opt):
     console.log('Build log directory:', log_dirpath)
     console.log('Build image directory:', img_dirpath)
 
-    handlers = [logging.FileHandler(
-        log_dirpath + "/deep_lpf.log"), logging.StreamHandler()]
+    handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME), logging.StreamHandler())]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
 
@@ -94,6 +107,11 @@ def saveTensorAsImg(output, path, resize=False):
 
 
 def checkConfig(opt, mode):
+    try:
+        assert RUNTIME in opt and DATA in opt
+    except:
+        raise RuntimeError('ERR: You shoud pass +ds=<dataset_name> and +runtime=<runtime_config> !')
+
     if mode == TRAIN:
         necessaryFields = trainNecessaryFields
     elif mode == TEST:
@@ -143,29 +161,30 @@ class ImageProcessing(object):
         img = img.view(-1, 3)
 
         img = (img / 12.92) * img.le(0.04045).float() + (((torch.clamp(img,
-                                                                       min=0.0001) + 0.055) / 1.055) ** 2.4) * img.gt(0.04045).float()
+                                                                       min=0.0001) + 0.055) / 1.055) ** 2.4) * img.gt(
+            0.04045).float()
 
         rgb_to_xyz = Variable(torch.FloatTensor([  # X        Y          Z
-                                                [0.412453, 0.212671,
-                                                    0.019334],  # R
-                                                [0.357580, 0.715160,
-                                                    0.119193],  # G
-                                                [0.180423, 0.072169,
-                                                    0.950227],  # B
-                                                ]), requires_grad=False).cuda()
+            [0.412453, 0.212671,
+             0.019334],  # R
+            [0.357580, 0.715160,
+             0.119193],  # G
+            [0.180423, 0.072169,
+             0.950227],  # B
+        ]), requires_grad=False).cuda()
 
         img = torch.matmul(img, rgb_to_xyz)
         img = torch.mul(img, Variable(torch.FloatTensor(
-            [1/0.950456, 1.0, 1/1.088754]), requires_grad=False).cuda())
+            [1 / 0.950456, 1.0, 1 / 1.088754]), requires_grad=False).cuda())
 
-        epsilon = 6/29
+        epsilon = 6 / 29
 
-        img = ((img / (3.0 * epsilon**2) + 4.0/29.0) * img.le(epsilon**3).float()) + \
-            (torch.clamp(img, min=0.0001)**(1.0/3.0) * img.gt(epsilon**3).float())
+        img = ((img / (3.0 * epsilon ** 2) + 4.0 / 29.0) * img.le(epsilon ** 3).float()) + \
+              (torch.clamp(img, min=0.0001) ** (1.0 / 3.0) * img.gt(epsilon ** 3).float())
 
-        fxfyfz_to_lab = Variable(torch.FloatTensor([[0.0,  500.0,    0.0],  # fx
-                                                    [116.0, -500.0,  200.0],  # fy
-                                                    [0.0,    0.0, -200.0],  # fz
+        fxfyfz_to_lab = Variable(torch.FloatTensor([[0.0, 500.0, 0.0],  # fx
+                                                    [116.0, -500.0, 200.0],  # fy
+                                                    [0.0, 0.0, -200.0],  # fz
                                                     ]), requires_grad=False).cuda()
 
         img = torch.matmul(img, fxfyfz_to_lab) + Variable(
@@ -179,9 +198,9 @@ class ImageProcessing(object):
         a_chan/b_chan: color channels with input range ~[-110, 110], not exact 
         [0, 100] => [0, 1],  ~[-110, 110] => [0, 1]
         '''
-        img[0, :, :] = img[0, :, :]/100
-        img[1, :, :] = (img[1, :, :]/110 + 1)/2
-        img[2, :, :] = (img[2, :, :]/110 + 1)/2
+        img[0, :, :] = img[0, :, :] / 100
+        img[1, :, :] = (img[1, :, :] / 110 + 1) / 2
+        img[2, :, :] = (img[2, :, :] / 110 + 1) / 2
 
         img[(img != img).detach()] = 0
 
@@ -275,8 +294,8 @@ class ImageProcessing(object):
             imageB = image_batchB[i, 0:3, :, :]
             imageB = np.maximum(0, np.minimum(imageB, max_intensity))
             psnr_val += 10 * \
-                np.log10(max_intensity ** 2 /
-                         ImageProcessing.compute_mse(imageA, imageB))
+                        np.log10(max_intensity ** 2 /
+                                 ImageProcessing.compute_mse(imageA, imageB))
 
         return psnr_val / num_images
 

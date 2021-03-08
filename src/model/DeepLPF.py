@@ -58,8 +58,8 @@ class DeepLPFLoss(nn.Module):
             COS_LOSS: None
         }
 
-        assert LTV_LOSS in self.opt[LOSSES]
-        assert COS_LOSS in self.opt[LOSSES]
+        assert LTV_LOSS in self.opt[RUNTIME][LOSSES]
+        assert COS_LOSS in self.opt[RUNTIME][LOSSES]
 
     def create_window(self, window_size, num_channel):
         """Window creation function for SSIM metric. Gaussian weights are applied to the window.
@@ -244,7 +244,7 @@ class DeepLPFLoss(nn.Module):
         self.losses[SSIM_LOSS] = ssim_loss_value
 
         # ─── LOCAL SMOOTHNESS LOSS ───────────────────────────────────────
-        ltvWeight = self.opt[LOSSES][LTV_LOSS]
+        ltvWeight = self.opt[RUNTIME][LOSSES][LTV_LOSS]
 
         if ltvWeight:
             assert type(ltvWeight + 0.1) == float
@@ -261,7 +261,7 @@ class DeepLPFLoss(nn.Module):
             deeplpf_loss += self.losses[LTV_LOSS]
 
         # ─── COS SIMILARITY ──────────────────────────────────────────────
-        cosWeight = self.opt[LOSSES][COS_LOSS]
+        cosWeight = self.opt[RUNTIME][LOSSES][COS_LOSS]
         if cosWeight:
             assert type(cosWeight + 0.1) == float
 
@@ -1023,8 +1023,8 @@ class DeepLPFParameterPrediction(nn.Module):
         '''
 
         # Y3 = Y2 * (mask_scale_elliptical + mask_scale_graduated) :
-        use_e = self.opt[RUNTIME][USE_ELLIPTICAL_FILTER]
-        use_g = self.opt[RUNTIME][USE_GRADUATED_FILTER]
+        use_e = self.opt[RUNTIME][FILTERS][USE_ELLIPTICAL_FILTER]
+        use_g = self.opt[RUNTIME][FILTERS][USE_GRADUATED_FILTER]
 
         if not use_e and not use_g:
             # no need for fusion

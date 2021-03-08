@@ -2,6 +2,9 @@
 
 modelname: deeplpf
 predict_illumination: true
+loss:
+  ltv: false
+  cos: 0.1
 filters:
-  - g: true   # if use_graduated_filter
-  - e: true   # if use_elliptical_filter
+  g: true   # if use_graduated_filter
+  e: true   # if use_elliptical_filter

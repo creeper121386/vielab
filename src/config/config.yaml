@@ -9,10 +9,8 @@ model_path: false # false for do not load runtime. Necessary when testing.
 
 # define config groups:
 defaults:
-  - ds: full
   - aug: crop512
-  - loss: useall
-  - runtime: deeplpf.default
+#  - runtime: deeplpf.default
 
 hydra:
   run:
