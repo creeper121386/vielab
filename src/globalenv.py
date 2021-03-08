@@ -12,6 +12,8 @@ from torch.cuda import is_available as cuda_available
 
 CUDA_AVAILABLE = cuda_available()
 
+########################################
+### The following part CAN be edited ###
 # Constants
 EVAL_RESULT_PATH = '../eval_results/'
 LOG_FILENAME = 'run.log'
@@ -38,7 +40,6 @@ EXPNAME = 'name'
 LOSSES = 'loss'
 DATA = 'ds'
 GPU = 'gpu'
-
 RUNTIME = 'runtime'
 MODELNAME = 'modelname'
 
@@ -54,6 +55,9 @@ HORIZON_FLIP = 'h-flip'
 RESIZE = 'resize'
 CROP = 'crop'
 
+# config.runtime.modelname
+DEEP_LPF = 'deeplpf'
+
 # config.runtime.deeplpf.*
 PREDICT_ILLUMINATION = 'predict_illumination'
 FILTERS = 'filters'
@@ -68,24 +72,42 @@ EVAL = 'eval'
 # file / dir name
 IMAGES = 'images'
 
-trainNecessaryFields = [
+# models name
+SUPPORTED_MODELS = [
+    DEEP_LPF
+]
+
+# required arguments in any condition:
+GENERAL_NECESSARY_ARGUMENTS = [
     EXPNAME,
-    NUM_EPOCH,
+    RUNTIME,
     GPU,
+    DATA,
+]
+
+# extra required arguments for all models when training:
+TRAIN_NECESSARY_ARGUMENTS = [
+    NUM_EPOCH,
     VALID_EVERY,
     LOG_EVERY,
     SAVE_MODEL_EVERY,
-    MODEL_PATH,
-    DATA,
     AUGMENTATION,
-    LOSSES,
-    FILTERS
 ]
 
-testNecessaryFields = [
-    EXPNAME,
-    GPU,
+# extra required arguments for all models when testing/evaluating:
+TEST_NECESSARY_ARGUMENTS = [
     MODEL_PATH,
-    DATA,
-    AUGMENTATION
 ]
+
+# extra required arguments for each model:
+RUNTIME_NECESSARY_ARGUMENTS = {
+    DEEP_LPF: [
+    ],
+}
+
+#############################################
+#### The following part CAN NOT be edited ###
+ARGUMENTS_MISSING_ERRS = {}
+for ls in [GENERAL_NECESSARY_ARGUMENTS, TRAIN_NECESSARY_ARGUMENTS, TEST_NECESSARY_ARGUMENTS]:
+    for x in ls:
+        ARGUMENTS_MISSING_ERRS[x] = f'ERR: Config missing argument: {x}'

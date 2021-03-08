@@ -26,10 +26,12 @@ from globalenv import *
 from matplotlib.image import imread
 from skimage import measure
 from torch.autograd import Variable
+from torchvision import transforms
 
 
 # matplotlib.use('agg')
 
+# (Discarded, now use Hydra)
 def parseConfig(dirpath):
     '''
     parse structured configs from directories. The directory must contains `config.yaml` , which defines which configLogging group to choose from. For example:
@@ -54,20 +56,24 @@ def parseConfig(dirpath):
         - schema: school
         - ui: view
     '''
+    pass
 
 
 def parseAugmentation(opt):
-    transform_config = opt[AUGMENTATION]
+    '''
+    return: pytorch composed transform
+    '''
+    aug_config = opt[AUGMENTATION]
 
-    transform_list = [transforms.ToPILImage(), ]
-    if transform_config[HORIZON_FLIP]:
-        transform_list.append(transforms.RandomHorizontalFlip())
+    aug_list = [transforms.ToPILImage(), ]
+    if aug_config[HORIZON_FLIP]:
+        aug_list.append(transforms.RandomHorizontalFlip())
 
-    elif transform_config[VERTICAL_FLIP]:
-        transform_list.append(transforms.RandomVerticalFlip())
+    elif aug_config[VERTICAL_FLIP]:
+        aug_list.append(transforms.RandomVerticalFlip())
 
-    transform_list.append(transforms.ToTensor())
-    return transforms.Compose(transform_list)
+    aug_list.append(transforms.ToTensor())
+    return transforms.Compose(aug_list)
 
 
 def configLogging(mode, opt):
@@ -81,12 +87,12 @@ def configLogging(mode, opt):
     console.log('Build log directory:', log_dirpath)
     console.log('Build image directory:', img_dirpath)
 
-    handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME), logging.StreamHandler())]
+    handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME)), logging.StreamHandler()]
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
 
     for k, v in opt.items():
-        logging.info(f'### Param - {k}: {v}')
+        logging.info(f'*** Param - {k}: {v}')
 
     return log_dirpath, img_dirpath
 
@@ -107,27 +113,35 @@ def saveTensorAsImg(output, path, resize=False):
 
 
 def checkConfig(opt, mode):
-    try:
-        assert RUNTIME in opt and DATA in opt
-    except:
-        raise RuntimeError('ERR: You shoud pass +ds=<dataset_name> and +runtime=<runtime_config> !')
-
-    if mode == TRAIN:
-        necessaryFields = trainNecessaryFields
-    elif mode == TEST:
-        necessaryFields = testNecessaryFields
-    else:
-        raise NotImplementedError('Function[checkConfig]: unknown mode', mode)
-
-    for x in necessaryFields:
+    def checkField(opt, name, raise_msg):
         try:
-            assert x in opt
+            assert name in opt
         except:
-            print('Field missing:', x)
+            raise RuntimeError(raise_msg)
+
+    # check necessary argments for ALL MODELS and ALL MODES:
+    for x in GENERAL_NECESSARY_ARGUMENTS:
+        checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
+
+    # check necessary argments for all models for EACH MODE:
+    if mode == TRAIN:
+        necessaryFields = TRAIN_NECESSARY_ARGUMENTS
+    elif mode in [TEST, EVAL]:
+        necessaryFields = TEST_NECESSARY_ARGUMENTS
+    else:
+        raise NotImplementedError('ERR: In function [checkConfig]: unknown mode', mode)
+    for x in necessaryFields:
+        checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
+
+    # check necessary argments for EACH MODEL:
+    assert opt[RUNTIME][MODELNAME] in SUPPORTED_MODELS
+    for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
+        checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
 
     return opt
 
 
+# (Discarded)
 def parseSingleYmlConfig(ymlpath, mode):
     '''
     input config file path (yml file), return config dict.

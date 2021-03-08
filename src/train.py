@@ -11,7 +11,7 @@ from globalenv import *
 from model.DeepLPF import DeepLPFNet, DeepLPFLoss
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
-from util import checkConfig, saveTensorAsImg, configLogging
+from util import checkConfig, saveTensorAsImg, configLogging, parseAugmentation
 
 writer = SummaryWriter()
 
