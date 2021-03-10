@@ -14,24 +14,75 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
 import math
 from math import exp
 
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 from globalenv import *
 from torch.autograd import Variable
 from util import ImageProcessing
 
-from . import Unet as unet
+from . import unet as unet
 from .basic_loss import LTVloss
 
-# import matplotlib
 
-# matplotlib.use('agg')
+class DeepLpfLitModel(pl.core.LightningModule):
+    def __init__(self, opt):
+        super().__init__()
+        self.save_hyperparameters(opt)
 
-print('Pytorch Version:', torch.__version__)
+        self.net = DeepLPFNet(opt)
+        self.losses = {
+            SSIM_LOSS: 0,
+            L1_LOSS: 0,
+            LTV_LOSS: 0,
+            COS_LOSS: 0
+        }
 
+        if opt[MODEL_PATH]:
+            # para = torch.load(opt[MODEL_PATH],
+            #                   map_location=lambda storage, location: storage)
+            # self.net.load_state_dict(para)
+            self.load_from_checkpoint(opt[MODEL_PATH])
 
-# np.set_printoptions(threshold=np.nan)
+        self.criterion = DeepLPFLoss(opt, ssim_window_size=5)
+        self.net.train()
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters(
+        )), lr=1e-4, betas=(0.9, 0.999), eps=1e-08)
+        return optimizer
+
+    def training_step(self, batch, batch_idx):
+        input_batch, gt_batch, category = Variable(batch[INPUT_IMG], requires_grad=False), \
+                                          Variable(batch[OUTPUT_IMG],
+                                                   requires_grad=False), batch[NAME]
+        output_dict = self.net(input_batch)
+        output = torch.clamp(
+            output_dict[OUTPUT], 0.0, 1.0)
+        loss = self.criterion(output_dict, gt_batch)
+        this_losses = self.criterion.get_current_loss()
+        for k in self.losses:
+            if this_losses[k] is not None:
+                self.losses[k] += this_losses[k]
+            else:
+                self.losses[k] = STRING_FALSE
+
+        for x, y in self.losses.items():
+            if y != STRING_FALSE:
+                self.log(x, y, on_step=False, on_epoch=True, prog_bar=True)
+
+        self.logger.experiment.log_metrics(self.losses)
+        return loss
+
+    # def training_epoch_end(self, outputs):
+
+    def forward(self, x):
+        return self.net(x)
+
+    def validation_step(self, batch, batch_idx):
+        pass
 
 
 class DeepLPFLoss(nn.Module):
@@ -101,11 +152,12 @@ class DeepLPFLoss(nn.Module):
         :rtype: float
 
         """
+        assert img1.type() == img2.type()
+
         (_, num_channel, _, _) = img1.size()
         window = self.create_window(self.ssim_window_size, num_channel)
 
         if img1.is_cuda:
-            window = window.cuda(img1.get_device())
             window = window.type_as(img1)
 
         mu1 = F.conv2d(
@@ -128,12 +180,12 @@ class DeepLPFLoss(nn.Module):
         C2 = 0.03 ** 2
 
         ssim_map1 = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2))
-        ssim_map2 = ((mu1_sq.cuda() + mu2_sq.cuda() + C1) *
-                     (sigma1_sq.cuda() + sigma2_sq.cuda() + C2))
-        ssim_map = ssim_map1.cuda() / ssim_map2.cuda()
+        ssim_map2 = ((mu1_sq.type_as(img1) + mu2_sq.type_as(img1) + C1) *
+                     (sigma1_sq.type_as(img1) + sigma2_sq.type_as(img1) + C2))
+        ssim_map = ssim_map1.type_as(img1) / ssim_map2.type_as(img1)
 
-        v1 = 2.0 * sigma12.cuda() + C2
-        v2 = sigma1_sq.cuda() + sigma2_sq.cuda() + C2
+        v1 = 2.0 * sigma12.type_as(img1) + C2
+        v2 = sigma1_sq.type_as(img1) + sigma2_sq.type_as(img1) + C2
         cs = torch.mean(v1 / v2)
 
         return ssim_map.mean(), cs
@@ -165,7 +217,7 @@ class DeepLPFLoss(nn.Module):
             [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]))
         # weights = Variable(torch.FloatTensor([1.0, 1.0, 1.0, 1.0, 1.0]))
         if img1.is_cuda:
-            weights = weights.cuda(img1.get_device())
+            weights = weights.type_as(img1)
 
         levels = weights.size()[0]
         # print(levels)
@@ -196,7 +248,7 @@ class DeepLPFLoss(nn.Module):
     def forward(self, outputDict, target_img_batch):
         """Forward function for the DeepLPF loss
 
-        :param outputDict: output dict with key OUTPUT and 'illumination'(optional) for network 
+        :param outputDict: output dict with key OUTPUT and 'illumination'(optional) for network
         :param target_img_batch: Tensor of shape BxCxWxH
         :returns: value of loss function
         :rtype: float
@@ -206,17 +258,15 @@ class DeepLPFLoss(nn.Module):
 
         predicted_img_batch = outputDict[OUTPUT]
         num_images = target_img_batch.shape[0]
-        target_img_batch = target_img_batch
 
-        ssim_loss_value = Variable(
-            torch.cuda.FloatTensor(torch.zeros(1, 1).cuda()))
-        l1_loss_value = Variable(
-            torch.cuda.FloatTensor(torch.zeros(1, 1).cuda()))
+        assert predicted_img_batch.type() == target_img_batch.type()
+
+        ssim_loss_value = torch.zeros(1, 1).type_as(predicted_img_batch)
+        l1_loss_value = torch.zeros(1, 1).type_as(predicted_img_batch)
 
         for i in range(0, num_images):
-
-            target_img = target_img_batch[i, :, :, :].cuda()
-            predicted_img = predicted_img_batch[i, :, :, :].cuda()
+            target_img = target_img_batch[i, :, :, :].type_as(predicted_img_batch)
+            predicted_img = predicted_img_batch[i, :, :, :].type_as(predicted_img_batch)
 
             predicted_img_lab = ImageProcessing.rgb_to_lab(
                 predicted_img.squeeze(0))
@@ -235,10 +285,10 @@ class DeepLPFLoss(nn.Module):
             # L1 loss
             l1_loss_value += F.l1_loss(predicted_img_lab, target_img_lab)
 
-        l1_loss_value = l1_loss_value/num_images
-        ssim_loss_value = ssim_loss_value/num_images
+        l1_loss_value = l1_loss_value / num_images
+        ssim_loss_value = ssim_loss_value / num_images
 
-        deeplpf_loss = l1_loss_value + 1e-3*ssim_loss_value
+        deeplpf_loss = l1_loss_value + 1e-3 * ssim_loss_value
 
         self.losses[L1_LOSS] = l1_loss_value
         self.losses[SSIM_LOSS] = ssim_loss_value
@@ -274,9 +324,8 @@ class DeepLPFLoss(nn.Module):
         # import ipdb; ipdb.set_trace()
         return deeplpf_loss
 
-    def get_currnet_loss(self):
+    def get_current_loss(self):
         return self.losses
-
 
 
 class BinaryLayer(nn.Module):
@@ -362,9 +411,9 @@ class CubicFilter(nn.Module):
         cubic_mask = torch.zeros_like(img)
 
         x_axis = Variable(torch.arange(
-            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).cuda()) / img.shape[2]
+            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).type_as(img)) / img.shape[2]
         y_axis = Variable(torch.arange(img.shape[3]).repeat(
-            img.shape[2], 1).cuda()) / img.shape[3]
+            img.shape[2], 1).type_as(img)) / img.shape[3]
 
         x_axis = x_axis.float()
         y_axis = y_axis.float()
@@ -374,49 +423,49 @@ class CubicFilter(nn.Module):
         Cubic for R channel
         '''
         cubic_mask[0, 0, :, :] = R[0, 0] * (x_axis ** 3) + R[0, 1] * (x_axis ** 2) * y_axis + R[0, 2] * (
-            x_axis ** 2) * img[0, 0, :, :] + R[0, 3] * (x_axis ** 2) + R[0, 4] * x_axis * (y_axis ** 2) + R[
-            0, 5] * x_axis * y_axis * img[0, 0, :, :] \
-            + R[0, 6] * x_axis * y_axis + R[0, 7] * x_axis * (img[0, 0, :, :] ** 2) + R[
-            0, 8] * x_axis * img[0, 0, :, :] + R[0, 9] * x_axis + R[0, 10] * (
-            y_axis ** 3) + R[0, 11] * (y_axis ** 2) * img[0, 0, :, :] \
-            + R[0, 12] * (y_axis ** 2) + R[0, 13] * y_axis * (img[0, 0, :, :] ** 2) + R[
-            0, 14] * y_axis * img[0, 0, :, :] + R[0, 15] * y_axis + R[0, 16] * (
-            img[0, 0, :, :] ** 3) + R[0, 17] * (img[0, 0, :, :] ** 2) \
-            + R[0, 18] * \
-            img[0, 0, :, :] + R[0, 19]
+                x_axis ** 2) * img[0, 0, :, :] + R[0, 3] * (x_axis ** 2) + R[0, 4] * x_axis * (y_axis ** 2) + R[
+                                     0, 5] * x_axis * y_axis * img[0, 0, :, :] \
+                                 + R[0, 6] * x_axis * y_axis + R[0, 7] * x_axis * (img[0, 0, :, :] ** 2) + R[
+                                     0, 8] * x_axis * img[0, 0, :, :] + R[0, 9] * x_axis + R[0, 10] * (
+                                         y_axis ** 3) + R[0, 11] * (y_axis ** 2) * img[0, 0, :, :] \
+                                 + R[0, 12] * (y_axis ** 2) + R[0, 13] * y_axis * (img[0, 0, :, :] ** 2) + R[
+                                     0, 14] * y_axis * img[0, 0, :, :] + R[0, 15] * y_axis + R[0, 16] * (
+                                         img[0, 0, :, :] ** 3) + R[0, 17] * (img[0, 0, :, :] ** 2) \
+                                 + R[0, 18] * \
+                                 img[0, 0, :, :] + R[0, 19]
 
         '''
         Cubic for G channel
         '''
         cubic_mask[0, 1, :, :] = R[0, 20] * (x_axis ** 3) + R[0, 21] * (x_axis ** 2) * y_axis + R[0, 22] * (
-            x_axis ** 2) * img[0, 1, :, :] + R[0, 23] * (x_axis ** 2) + R[0, 24] * x_axis * (y_axis ** 2) + R[
-            0, 25] * x_axis * y_axis * img[0, 1, :, :] \
-            + R[0, 26] * x_axis * y_axis + R[0, 27] * x_axis * (img[0, 1, :, :] ** 2) + R[
-            0, 28] * x_axis * img[0, 1, :, :] + R[0, 29] * x_axis + R[0, 30] * (
-            y_axis ** 3) + R[0, 31] * (y_axis ** 2) * img[0, 1, :, :] \
-            + R[0, 32] * (y_axis ** 2) + R[0, 33] * y_axis * (img[0, 1, :, :] ** 2) + R[
-            0, 34] * y_axis * img[0, 1, :, :] + R[0, 35] * y_axis + R[0, 36] * (
-            img[0, 1, :, :] ** 3) + R[0, 37] * (img[0, 1, :, :] ** 2) \
-            + R[0, 38] * \
-            img[0, 1, :, :] + R[0, 39]
+                x_axis ** 2) * img[0, 1, :, :] + R[0, 23] * (x_axis ** 2) + R[0, 24] * x_axis * (y_axis ** 2) + R[
+                                     0, 25] * x_axis * y_axis * img[0, 1, :, :] \
+                                 + R[0, 26] * x_axis * y_axis + R[0, 27] * x_axis * (img[0, 1, :, :] ** 2) + R[
+                                     0, 28] * x_axis * img[0, 1, :, :] + R[0, 29] * x_axis + R[0, 30] * (
+                                         y_axis ** 3) + R[0, 31] * (y_axis ** 2) * img[0, 1, :, :] \
+                                 + R[0, 32] * (y_axis ** 2) + R[0, 33] * y_axis * (img[0, 1, :, :] ** 2) + R[
+                                     0, 34] * y_axis * img[0, 1, :, :] + R[0, 35] * y_axis + R[0, 36] * (
+                                         img[0, 1, :, :] ** 3) + R[0, 37] * (img[0, 1, :, :] ** 2) \
+                                 + R[0, 38] * \
+                                 img[0, 1, :, :] + R[0, 39]
 
         '''
         Cubic for B channel
         '''
         cubic_mask[0, 2, :, :] = R[0, 40] * (x_axis ** 3) + R[0, 41] * (x_axis ** 2) * y_axis + R[0, 42] * (
-            x_axis ** 2) * img[0, 2, :, :] + R[0, 43] * (x_axis ** 2) + R[0, 44] * x_axis * (y_axis ** 2) + R[
-            0, 45] * x_axis * y_axis * img[0, 2, :, :] \
-            + R[0, 46] * x_axis * y_axis + R[0, 47] * x_axis * (img[0, 2, :, :] ** 2) + R[
-            0, 48] * x_axis * img[0, 2, :, :] + R[0, 49] * x_axis + R[0, 50] * (
-            y_axis ** 3) + R[0, 51] * (y_axis ** 2) * img[0, 2, :, :] \
-            + R[0, 52] * (y_axis ** 2) + R[0, 53] * y_axis * (img[0, 2, :, :] ** 2) + R[
-            0, 54] * y_axis * img[0, 2, :, :] + R[0, 55] * y_axis + R[0, 56] * (
-            img[0, 2, :, :] ** 3) + R[0, 57] * (img[0, 2, :, :] ** 2) \
-            + R[0, 58] * \
-            img[0, 2, :, :] + R[0, 59]
+                x_axis ** 2) * img[0, 2, :, :] + R[0, 43] * (x_axis ** 2) + R[0, 44] * x_axis * (y_axis ** 2) + R[
+                                     0, 45] * x_axis * y_axis * img[0, 2, :, :] \
+                                 + R[0, 46] * x_axis * y_axis + R[0, 47] * x_axis * (img[0, 2, :, :] ** 2) + R[
+                                     0, 48] * x_axis * img[0, 2, :, :] + R[0, 49] * x_axis + R[0, 50] * (
+                                         y_axis ** 3) + R[0, 51] * (y_axis ** 2) * img[0, 2, :, :] \
+                                 + R[0, 52] * (y_axis ** 2) + R[0, 53] * y_axis * (img[0, 2, :, :] ** 2) + R[
+                                     0, 54] * y_axis * img[0, 2, :, :] + R[0, 55] * y_axis + R[0, 56] * (
+                                         img[0, 2, :, :] ** 3) + R[0, 57] * (img[0, 2, :, :] ** 2) \
+                                 + R[0, 58] * \
+                                 img[0, 2, :, :] + R[0, 59]
 
         img_cubic = torch.clamp(img + cubic_mask, 0, 1)
-        return img_cubic    # shape (1, 3, h, w)
+        return img_cubic  # shape (1, 3, h, w)
 
 
 class GraduatedFilter(nn.Module):
@@ -471,7 +520,7 @@ class GraduatedFilter(nn.Module):
         return (cond * x_1) + ((1 - cond) * x_2)
 
     def get_inverted_mask(self, factor, invert, d1, d2, max_scale, top_line):
-        """ Inverts the graduated filter based on a learnt binary variable 
+        """ Inverts the graduated filter based on a learnt binary variable
 
         :param factor: scale factor
         :param invert: binary indicator variable
@@ -486,31 +535,31 @@ class GraduatedFilter(nn.Module):
         if (invert == 1).all():
 
             if (factor >= 1).all():
-                diff = ((factor-1))/2 + 1
-                grad1 = (diff-factor)/d1
-                grad2 = (1-diff)/d2
+                diff = ((factor - 1)) / 2 + 1
+                grad1 = (diff - factor) / d1
+                grad2 = (1 - diff) / d2
                 mask_scale = torch.clamp(
-                    factor+grad1*top_line+grad2*top_line, min=1, max=max_scale)
+                    factor + grad1 * top_line + grad2 * top_line, min=1, max=max_scale)
             else:
-                diff = ((1-factor))/2 + factor
-                grad1 = (diff-factor)/d1
-                grad2 = (1-diff)/d2
+                diff = ((1 - factor)) / 2 + factor
+                grad1 = (diff - factor) / d1
+                grad2 = (1 - diff) / d2
                 mask_scale = torch.clamp(
-                    factor+grad1*top_line+grad2*top_line, min=0, max=1)
+                    factor + grad1 * top_line + grad2 * top_line, min=0, max=1)
         else:
 
             if (factor >= 1).all():
-                diff = ((factor-1))/2 + 1
-                grad1 = (diff-factor)/d1
-                grad2 = (factor-diff)/d2
+                diff = ((factor - 1)) / 2 + 1
+                grad1 = (diff - factor) / d1
+                grad2 = (factor - diff) / d2
                 mask_scale = torch.clamp(
-                    1+grad1*top_line+grad2*top_line, min=1, max=max_scale)
+                    1 + grad1 * top_line + grad2 * top_line, min=1, max=max_scale)
             else:
-                diff = ((1-factor))/2 + factor
-                grad1 = (diff-1)/d1
-                grad2 = (factor-diff)/d2
+                diff = ((1 - factor)) / 2 + factor
+                grad1 = (diff - 1) / d1
+                grad2 = (factor - diff) / d2
                 mask_scale = torch.clamp(
-                    1+grad1*top_line+grad2*top_line, min=0, max=1)
+                    1 + grad1 * top_line + grad2 * top_line, min=0, max=1)
 
         mask_scale = torch.clamp(mask_scale.unsqueeze(0), 0, max_scale)
         return mask_scale
@@ -528,9 +577,9 @@ class GraduatedFilter(nn.Module):
         ####################### Graduated #####################
 
         x_axis = Variable(torch.arange(
-            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).cuda()) / img.shape[2]
+            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).type_as(img)) / img.shape[2]
         y_axis = Variable(torch.arange(img.shape[3]).repeat(
-            img.shape[2], 1).cuda()) / img.shape[3]
+            img.shape[2], 1).type_as(img)) / img.shape[3]
         x_axis = x_axis.float()
         y_axis = y_axis.float()
 
@@ -550,9 +599,9 @@ class GraduatedFilter(nn.Module):
         G = self.fc_graduated(x)
 
         # Classification values (above or below the line)
-        G[0, 21] = ((self.bin_layer(G[0, 21]))+1)/2
-        G[0, 22] = ((self.bin_layer(G[0, 22]))+1)/2
-        G[0, 23] = ((self.bin_layer(G[0, 23]))+1)/2
+        G[0, 21] = ((self.bin_layer(G[0, 21])) + 1) / 2
+        G[0, 22] = ((self.bin_layer(G[0, 22])) + 1) / 2
+        G[0, 23] = ((self.bin_layer(G[0, 23])) + 1) / 2
 
         slope1 = G[0, 0].clone()
         slope2 = G[0, 6].clone()
@@ -590,12 +639,12 @@ class GraduatedFilter(nn.Module):
         slope2_angle = torch.atan(slope2)
         slope3_angle = torch.atan(slope3)
 
-        d1 = self.tanh01(G[0, 2]*torch.cos(slope1_angle))
-        d2 = self.tanh01(G[0, 18]*torch.cos(slope1_angle))
-        d3 = self.tanh01(G[0, 8]*torch.cos(slope2_angle))
-        d4 = self.tanh01(G[0, 19]*torch.cos(slope2_angle))
-        d5 = self.tanh01(G[0, 14]*torch.cos(slope3_angle))
-        d6 = self.tanh01(G[0, 20]*torch.cos(slope3_angle))
+        d1 = self.tanh01(G[0, 2] * torch.cos(slope1_angle))
+        d2 = self.tanh01(G[0, 18] * torch.cos(slope1_angle))
+        d3 = self.tanh01(G[0, 8] * torch.cos(slope2_angle))
+        d4 = self.tanh01(G[0, 19] * torch.cos(slope2_angle))
+        d5 = self.tanh01(G[0, 14] * torch.cos(slope3_angle))
+        d6 = self.tanh01(G[0, 20] * torch.cos(slope3_angle))
 
         top_line1 = self.tanh01(y_axis - (slope1 * x_axis + G[0, 1] + d1))
         top_line2 = self.tanh01(y_axis - (slope2 * x_axis + G[0, 7] + d3))
@@ -635,7 +684,7 @@ class GraduatedFilter(nn.Module):
         mask_scale_7 = torch.clamp(mask_scale_7.unsqueeze(0), 0, max_scale)
 
         mask_scale = torch.clamp(
-            mask_scale_1*mask_scale_4*mask_scale_7, 0, max_scale)
+            mask_scale_1 * mask_scale_4 * mask_scale_7, 0, max_scale)
 
         return mask_scale
 
@@ -699,8 +748,11 @@ class EllipticalFilter(nn.Module):
         :rtype: Tensor
 
         """
-        mask_scale = self.where((((((x_axis - shift_x)*torch.cos(alpha) + (y_axis - shift_y)*torch.sin(alpha)) ** 2) / ((semi_axis_x)**2)) + ((((x_axis - shift_x)*torch.sin(alpha) - (y_axis - shift_y)*torch.cos(alpha)) ** 2) / ((semi_axis_y)**2)) + eps) < 1,
-                                (torch.sqrt((x_axis - shift_x) ** 2 + (y_axis - shift_y) ** 2 + eps) * (1 - scale_factor)) / radius + scale_factor, 1)
+        mask_scale = self.where((((((x_axis - shift_x) * torch.cos(alpha) + (y_axis - shift_y) * torch.sin(
+            alpha)) ** 2) / ((semi_axis_x) ** 2)) + ((((x_axis - shift_x) * torch.sin(alpha) - (
+                y_axis - shift_y) * torch.cos(alpha)) ** 2) / ((semi_axis_y) ** 2)) + eps) < 1,
+                                (torch.sqrt((x_axis - shift_x) ** 2 + (y_axis - shift_y) ** 2 + eps) * (
+                                        1 - scale_factor)) / radius + scale_factor, 1)
         mask_scale = torch.clamp(mask_scale.unsqueeze(0), 0, max_scale)
 
         return mask_scale
@@ -735,9 +787,9 @@ class EllipticalFilter(nn.Module):
         G = self.fc_elliptical(x)
 
         x_axis = Variable(torch.arange(
-            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).cuda()) / img.shape[2]
+            img.shape[2]).view(-1, 1).repeat(1, img.shape[3]).type_as(img)) / img.shape[2]
         y_axis = Variable(torch.arange(img.shape[3]).repeat(
-            img.shape[2], 1).cuda()) / img.shape[3]
+            img.shape[2], 1).type_as(img)) / img.shape[3]
 
         x_axis = x_axis.float()
         y_axis = y_axis.float()
@@ -788,33 +840,39 @@ class EllipticalFilter(nn.Module):
         G[0, 22] = self.tanh01(G[0, 22]) * max_scale + eps
         G[0, 23] = self.tanh01(G[0, 23]) * max_scale + eps
 
-        angle_1 = torch.acos(torch.clamp((y_axis-G[0, 1]) / (torch.sqrt(
-            (x_axis-G[0, 0])**2 + (y_axis-G[0, 1])**2 + eps) + eps), -1+1e-7, 1-1e-7)) - G[0, 4]
-        angle_2 = torch.acos(torch.clamp((y_axis-G[0, 9]) / (torch.sqrt((x_axis-G[0, 8]) ** 2 + (
-            y_axis-G[0, 9]) ** 2 + eps) + eps), -1+1e-7, 1-1e-7)) - G[0, 12]
-        angle_3 = torch.acos(torch.clamp((y_axis-G[0, 17]) / (torch.sqrt((x_axis-G[0, 16]) ** 2 + (
-            y_axis-G[0, 17]) ** 2 + eps) + eps), -1+1e-7, 1-1e-7)) - G[0, 20]
+        angle_1 = torch.acos(torch.clamp((y_axis - G[0, 1]) / (torch.sqrt(
+            (x_axis - G[0, 0]) ** 2 + (y_axis - G[0, 1]) ** 2 + eps) + eps), -1 + 1e-7, 1 - 1e-7)) - G[0, 4]
+        angle_2 = torch.acos(torch.clamp((y_axis - G[0, 9]) / (torch.sqrt((x_axis - G[0, 8]) ** 2 + (
+                y_axis - G[0, 9]) ** 2 + eps) + eps), -1 + 1e-7, 1 - 1e-7)) - G[0, 12]
+        angle_3 = torch.acos(torch.clamp((y_axis - G[0, 17]) / (torch.sqrt((x_axis - G[0, 16]) ** 2 + (
+                y_axis - G[0, 17]) ** 2 + eps) + eps), -1 + 1e-7, 1 - 1e-7)) - G[0, 20]
 
-        radius_1 = ((G[0, 2]*G[0, 3]) / (torch.sqrt((G[0, 2]**2)*(torch.sin(angle_1)
-                                                                  ** 2) + (G[0, 3]**2)*(torch.cos(angle_1)**2) + eps) + eps)) + eps
+        radius_1 = ((G[0, 2] * G[0, 3]) / (torch.sqrt((G[0, 2] ** 2) * (torch.sin(angle_1)
+                                                                        ** 2) + (G[0, 3] ** 2) * (
+                                                              torch.cos(angle_1) ** 2) + eps) + eps)) + eps
         radius_2 = ((G[0, 10] * G[0, 11]) / (torch.sqrt((G[0, 10] ** 2) * (torch.sin(angle_2)
-                                                                           ** 2) + (G[0, 11] ** 2) * (torch.cos(angle_2) ** 2) + eps) + eps)) + eps
+                                                                           ** 2) + (G[0, 11] ** 2) * (
+                                                                torch.cos(angle_2) ** 2) + eps) + eps)) + eps
         radius_3 = ((G[0, 18] * G[0, 19]) / (torch.sqrt((G[0, 18] ** 2) * (torch.sin(angle_3)
-                                                                           ** 2) + (G[0, 19] ** 2) * (torch.cos(angle_3) ** 2) + eps) + eps)) + eps
+                                                                           ** 2) + (G[0, 19] ** 2) * (
+                                                                torch.cos(angle_3) ** 2) + eps) + eps)) + eps
 
         mask_scale1 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 0], shift_y=G[0, 1], semi_axis_x=G[0,
-                                                                                    2], semi_axis_y=G[0, 3], alpha=G[0, 4], scale_factor=G[0, 5],
+                                                                                    2], semi_axis_y=G[0, 3],
+                                    alpha=G[0, 4], scale_factor=G[0, 5],
                                     radius=radius_1)
 
         mask_scale2 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 0], shift_y=G[0, 1], semi_axis_x=G[0,
-                                                                                    2], semi_axis_y=G[0, 3], alpha=G[0, 4], scale_factor=G[0, 6],
+                                                                                    2], semi_axis_y=G[0, 3],
+                                    alpha=G[0, 4], scale_factor=G[0, 6],
                                     radius=radius_1)
 
         mask_scale3 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 0], shift_y=G[0, 1], semi_axis_x=G[0,
-                                                                                    2], semi_axis_y=G[0, 3], alpha=G[0, 4], scale_factor=G[0, 7],
+                                                                                    2], semi_axis_y=G[0, 3],
+                                    alpha=G[0, 4], scale_factor=G[0, 7],
                                     radius=radius_1)
 
         mask_scale_1 = torch.cat(
@@ -825,17 +883,20 @@ class EllipticalFilter(nn.Module):
 
         mask_scale4 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 8], shift_y=G[0, 9], semi_axis_x=G[0,
-                                                                                    10], semi_axis_y=G[0, 11], alpha=G[0, 12], scale_factor=G[0, 13],
+                                                                                    10], semi_axis_y=G[0, 11],
+                                    alpha=G[0, 12], scale_factor=G[0, 13],
                                     radius=radius_2)
 
         mask_scale5 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 8], shift_y=G[0, 9], semi_axis_x=G[0,
-                                                                                    10], semi_axis_y=G[0, 11], alpha=G[0, 12], scale_factor=G[0, 14],
+                                                                                    10], semi_axis_y=G[0, 11],
+                                    alpha=G[0, 12], scale_factor=G[0, 14],
                                     radius=radius_2)
 
         mask_scale6 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 8], shift_y=G[0, 9], semi_axis_x=G[0,
-                                                                                    10], semi_axis_y=G[0, 11], alpha=G[0, 12], scale_factor=G[0, 15],
+                                                                                    10], semi_axis_y=G[0, 11],
+                                    alpha=G[0, 12], scale_factor=G[0, 15],
                                     radius=radius_2)
 
         mask_scale_4 = torch.cat(
@@ -846,17 +907,20 @@ class EllipticalFilter(nn.Module):
 
         mask_scale7 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 16], shift_y=G[0, 17], semi_axis_x=G[0,
-                                                                                      18], semi_axis_y=G[0, 19], alpha=G[0, 20], scale_factor=G[0, 21],
+                                                                                      18], semi_axis_y=G[0, 19],
+                                    alpha=G[0, 20], scale_factor=G[0, 21],
                                     radius=radius_3)
 
         mask_scale8 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 16], shift_y=G[0, 17], semi_axis_x=G[0,
-                                                                                      18], semi_axis_y=G[0, 19], alpha=G[0, 20], scale_factor=G[0, 22],
+                                                                                      18], semi_axis_y=G[0, 19],
+                                    alpha=G[0, 20], scale_factor=G[0, 22],
                                     radius=radius_3)
 
         mask_scale9 = self.get_mask(x_axis, y_axis,
                                     shift_x=G[0, 16], shift_y=G[0, 17], semi_axis_x=G[0,
-                                                                                      18], semi_axis_y=G[0, 19], alpha=G[0, 20], scale_factor=G[0, 23],
+                                                                                      18], semi_axis_y=G[0, 19],
+                                    alpha=G[0, 20], scale_factor=G[0, 23],
                                     radius=radius_3)
 
         mask_scale_7 = torch.cat(
@@ -1003,12 +1067,11 @@ class DeepLPFParameterPrediction(nn.Module):
 
         """
         x.contiguous()  # remove memory holes
-        x.cuda()
 
         feat = x[:, 3:64, :, :]
         img = x[:, 0:3, :, :]
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         # shape = x.shape
         # img_clamped = torch.clamp(img, 0, 1)
 
@@ -1034,10 +1097,10 @@ class DeepLPFParameterPrediction(nn.Module):
                 feat, img)
             mask_scale_elliptical = self.elliptical_filter.get_elliptical_mask(
                 feat, img)
-                
+
             if use_e and use_g:
                 mask_scale_fuse = torch.clamp(
-                    mask_scale_graduated+mask_scale_elliptical, 0, 2)
+                    mask_scale_graduated + mask_scale_elliptical, 0, 2)
 
             elif use_e and not use_g:
                 mask_scale_fuse = torch.clamp(mask_scale_elliptical, 0, 1)
@@ -1045,9 +1108,9 @@ class DeepLPFParameterPrediction(nn.Module):
                 mask_scale_fuse = torch.clamp(mask_scale_graduated, 0, 1)
 
             res_residual = torch.clamp(img_cubic * mask_scale_fuse, 0, 1)
-            
+
         # Y = Y1 + Y3 :
-        img = torch.clamp(res_residual+img, 0, 1)
+        img = torch.clamp(res_residual + img, 0, 1)
 
         return img
 

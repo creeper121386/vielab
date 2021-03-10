@@ -10,9 +10,9 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from data import Dataset
+from data import ImagesDataset
 from globalenv import *
-from model.DeepLPF import DeepLPFNet
+from model.deeplpf import DeepLPFNet
 from torch.autograd import Variable
 from util import ImageProcessing, saveTensorAsImg, checkConfig, configLogging
 
@@ -73,9 +73,9 @@ def calculate_ssim(img1, img2):
 
 
 def testWithGT(opt, log_dirpath, img_dirpath, net):
-    testdata = Dataset(opt, data_dict=None, transform=transforms.Compose(
+    testdata = ImagesDataset(opt, data_dict=None, transform=transforms.Compose(
         [transforms.ToPILImage(), transforms.ToTensor()]),
-                       normaliser=2 ** 8 - 1, is_valid=False)
+                             normaliser=2 ** 8 - 1, is_valid=False)
 
     dataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False,
                                              num_workers=4)

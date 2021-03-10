@@ -4,7 +4,7 @@ num_epoch: 1000
 gpu: 1
 valid_every: 10
 log_every: 100
-save_model_every: 20
+save_model_every: 1
 model_path: false # false for do not load runtime. Necessary when testing.
 
 # define config groups:

@@ -1,11 +1,26 @@
-<div style="font-size:90px;text-align:center;font-weight: bold"> 
-vielab
-</div>
+# vielab
 
-`vielab` means Video / Image Enhancement Lab, containing multiple kinds of deep learning based enhancement methods:
+`vielab` means Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image
+enhancement methods:
 
-- [x] DeepLPF
-- [ ] 3D-LUT
+[comment]: <> (- [x] DeepLPF: [src]&#40;https://github.com/sjmoran/DeepLPF&#41; | [paper]&#40;https://arxiv.org/abs/2003.13985&#41;)
+
+[comment]: <> (- [ ] 3D-LUT: [src]&#40;https://github.com/HuiZeng/Image-Adaptive-3DLUT&#41; | [paper]&#40;https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf&#41;)
+
+|Model|Source|Paper
+|---|---|---
+|DeepLPF|https://github.com/sjmoran/DeepLPF|https://arxiv.org/abs/2003.13985
+|3D-LUT|https://github.com/HuiZeng/Image-Adaptive-3DLUT|https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf
+
+The code architecture of this project is applicable to any model whose input and output are images, like de-noising,
+HDR, super resolution, and other kinds of enhancement.
+
+## Environment
+
+- Pytorch 1.5
+- cuda 10.2
+- cudnn 7
+- pytorch-lightning 1.2.2
 
 ## Config your model
 

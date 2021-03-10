@@ -77,7 +77,7 @@ def parseAugmentation(opt):
 
 
 def configLogging(mode, opt):
-    log_dirpath = f"../{mode}_log/{opt[RUNTIME]}/{opt[EXPNAME]}_" + \
+    log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[EXPNAME]}_" + \
                   datetime.datetime.now().strftime(LOG_TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, IMAGES)
 
