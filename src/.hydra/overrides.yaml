@@ -1,1 +1,6 @@
-- ds=local-debug
+- +ds=local-debug
+- log_every=1
+- +runtime=deeplpf.default
+- gpu=0
+- num_epoch=5
+- dataloader_num_worker=0

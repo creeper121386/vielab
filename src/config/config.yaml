@@ -1,11 +1,12 @@
 # general config for all models:
 name: default_name    # name of experiment
 num_epoch: 1000
-gpu: 1
+gpu: 1    # number of gpus to train on (int) or which GPUs to train on (list or str) applied
 valid_every: 10
-log_every: 100
-save_model_every: 1
-model_path: false # false for do not load runtime. Necessary when testing.
+log_every: 100    # log your message, curve or images
+dataloader_num_worker: 4
+#save_model_every: 1
+checkpoint_path: false # false for do not load runtime. Necessary when testing.
 
 # define config groups:
 defaults:

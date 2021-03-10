@@ -1,24 +1,25 @@
 name: default_name
-num_epoch: 1000
-gpu: 1
+num_epoch: 5
+gpu: 0
 valid_every: 10
-log_every: 100
-save_model_every: 20
-model_path: false
-ds:
-  GT_dirpath: /Users/why/dev/dataset/vielab-debug/gt
-  input_dirpath: /Users/why/dev/dataset/vielab-debug/input
+log_every: 1
+dataloader_num_worker: 0
+save_model_every: 1
+checkpoint_path: false
 aug:
   crop: 512
   resize: false
   h-flip: true
   v-flip: true
-loss:
-  ltv: false
-  cos: 0.1
+ds:
+  GT_dirpath: /Users/why/dev/dataset/vielab-debug/gt
+  input_dirpath: /Users/why/dev/dataset/vielab-debug/input
 runtime:
   modelname: deeplpf
   predict_illumination: true
+  loss:
+    ltv: false
+    cos: 0.1
   filters:
     g: true
     e: true

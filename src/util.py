@@ -18,6 +18,7 @@ import os.path as osp
 
 import cv2
 import numpy as np
+import omegaconf
 import torch
 # import matplotlib
 import yaml
@@ -107,9 +108,10 @@ def saveTensorAsImg(output, path, resize=False):
 
         h = outImg.shape[0]
         w = outImg.shape[1]
-        outImg = cv2.resize(outImg, (int(w / resize), int(h / resize)))
+        outImg = cv2.resize(outImg, (int(w / resize), int(h / resize))).astype(np.uint8)
 
-    cv2.imwrite(path, outImg.astype(np.uint8))
+    cv2.imwrite(path, outImg)
+    return outImg
 
 
 def checkConfig(opt, mode):
@@ -138,7 +140,7 @@ def checkConfig(opt, mode):
     for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
         checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
 
-    return opt
+    return omegaconf.OmegaConf.to_container(opt)
 
 
 # (Discarded)

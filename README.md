@@ -79,6 +79,18 @@ also be loaded at the same time, but it's OK cause `test.py` and `eval.py` will 
 If you want to define some extra necessary parameters for testing/evaluation other than training parameters, you could
 create a new `yaml` in `runtime` group.
 
+### Use GPU
+
+Argument `gpu` can be an integer which means number of gpus to train on, or a list which GPUs to train on.
+
+Examples:
+
+```shell
+python train.py [OTHER_ARGS...] gpu=2     # use 2 gpus
+python train.py [OTHER_ARGS...] gpu=0     # don't use gpu
+python train.py [OTHER_ARGS...] gpu='[1,2,3]'   # use gpu1, gpu2 and gpu3
+```
+
 ### Reference
 
 If you are still confused about the config process of the project, I recommend you to

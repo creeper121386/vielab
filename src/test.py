@@ -78,7 +78,7 @@ def testWithGT(opt, log_dirpath, img_dirpath, net):
                              normaliser=2 ** 8 - 1, is_valid=False)
 
     dataloader = torch.utils.data.DataLoader(testdata, batch_size=1, shuffle=False,
-                                             num_workers=4)
+                                             num_workers=opt[DATALOADER_NUM_WORKER])
     psnr_all = psnr_count = ssim_all = ssim_count = 0
     for batch_num, data in enumerate(dataloader, 0):
         '''
@@ -157,7 +157,7 @@ def evalWithoutGT(opt, log_dirpath, img_dirpath, net, path):
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TEST)
-    checkpoint_filepath = opt[MODEL_PATH]
+    checkpoint_filepath = opt[CHECKPOINT_PATH]
     if CUDA_AVAILABLE:
         torch.cuda.set_device(opt[GPU])
         console.log('Current cuda device:', torch.cuda.current_device())

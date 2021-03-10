@@ -12,6 +12,8 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
 
 '''
 import math
+import os
+import os.path as osp
 from math import exp
 
 import pytorch_lightning as pl
@@ -21,7 +23,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from globalenv import *
 from torch.autograd import Variable
-from util import ImageProcessing
+from util import ImageProcessing, saveTensorAsImg
 
 from . import unet as unet
 from .basic_loss import LTVloss
@@ -37,22 +39,34 @@ class DeepLpfLitModel(pl.core.LightningModule):
             SSIM_LOSS: 0,
             L1_LOSS: 0,
             LTV_LOSS: 0,
-            COS_LOSS: 0
+            COS_LOSS: 0,
+            LOSS: 0
         }
-
-        if opt[MODEL_PATH]:
-            # para = torch.load(opt[MODEL_PATH],
-            #                   map_location=lambda storage, location: storage)
-            # self.net.load_state_dict(para)
-            self.load_from_checkpoint(opt[MODEL_PATH])
+        self.iternum = 0
+        self.epoch = 0
+        self.opt = opt
+        self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
+        if opt[RUNTIME][PREDICT_ILLUMINATION] and not os.path.exists(self.illumination_dirpath):
+            os.makedirs(self.illumination_dirpath)
 
         self.criterion = DeepLPFLoss(opt, ssim_window_size=5)
         self.net.train()
+
+    def get_progress_bar_dict(self):
+        items = super().get_progress_bar_dict()
+        items.pop("v_num", None)
+        items.pop("loss", None)
+        return items
 
     def configure_optimizers(self):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters(
         )), lr=1e-4, betas=(0.9, 0.999), eps=1e-08)
         return optimizer
+
+    def log_img(self, output, img_dirpath, name, fname):
+        imgpath = osp.join(img_dirpath, fname)
+        img = saveTensorAsImg(output, imgpath)
+        self.logger.experiment.log_image(img, overwrite=False, name=name)
 
     def training_step(self, batch, batch_idx):
         input_batch, gt_batch, category = Variable(batch[INPUT_IMG], requires_grad=False), \
@@ -63,6 +77,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
             output_dict[OUTPUT], 0.0, 1.0)
         loss = self.criterion(output_dict, gt_batch)
         this_losses = self.criterion.get_current_loss()
+
         for k in self.losses:
             if this_losses[k] is not None:
                 self.losses[k] += this_losses[k]
@@ -73,16 +88,26 @@ class DeepLpfLitModel(pl.core.LightningModule):
             if y != STRING_FALSE:
                 self.log(x, y, on_step=False, on_epoch=True, prog_bar=True)
 
+        # log to comet
         self.logger.experiment.log_metrics(self.losses)
+
+        # save images
+        if batch_idx % self.opt[LOG_EVERY] == 0:
+            fname = f'epoch{self.epoch}_iter{batch_idx}.png'
+            self.log_img(output, self.opt[IMG_DIRPATH], OUTPUT_IMG, fname)
+
+            if PREDICT_ILLUMINATION in output_dict:
+                self.log_img(output, self.illumination_dirpath, PREDICT_ILLUMINATION, fname)
         return loss
 
-    # def training_epoch_end(self, outputs):
+    def training_epoch_end(self, outputs):
+        self.epoch += 1
 
     def forward(self, x):
         return self.net(x)
 
-    def validation_step(self, batch, batch_idx):
-        pass
+    # def validation_step(self, batch, batch_idx):
+    #     pass
 
 
 class DeepLPFLoss(nn.Module):
@@ -106,11 +131,12 @@ class DeepLPFLoss(nn.Module):
             SSIM_LOSS: None,
             L1_LOSS: None,
             LTV_LOSS: None,
-            COS_LOSS: None
+            COS_LOSS: None,
+            LOSS: None
         }
 
-        assert LTV_LOSS in self.opt[RUNTIME][LOSSES]
-        assert COS_LOSS in self.opt[RUNTIME][LOSSES]
+        assert LTV_LOSS in self.opt[RUNTIME][LOSS]
+        assert COS_LOSS in self.opt[RUNTIME][LOSS]
 
     def create_window(self, window_size, num_channel):
         """Window creation function for SSIM metric. Gaussian weights are applied to the window.
@@ -294,7 +320,7 @@ class DeepLPFLoss(nn.Module):
         self.losses[SSIM_LOSS] = ssim_loss_value
 
         # ─── LOCAL SMOOTHNESS LOSS ───────────────────────────────────────
-        ltvWeight = self.opt[RUNTIME][LOSSES][LTV_LOSS]
+        ltvWeight = self.opt[RUNTIME][LOSS][LTV_LOSS]
 
         if ltvWeight:
             assert type(ltvWeight + 0.1) == float
@@ -311,7 +337,7 @@ class DeepLPFLoss(nn.Module):
             deeplpf_loss += self.losses[LTV_LOSS]
 
         # ─── COS SIMILARITY ──────────────────────────────────────────────
-        cosWeight = self.opt[RUNTIME][LOSSES][COS_LOSS]
+        cosWeight = self.opt[RUNTIME][LOSS][COS_LOSS]
         if cosWeight:
             assert type(cosWeight + 0.1) == float
 
@@ -322,6 +348,7 @@ class DeepLPFLoss(nn.Module):
         # ─────────────────────────────────────────────────────────────────
 
         # import ipdb; ipdb.set_trace()
+        self.losses[LOSS] = deeplpf_loss
         return deeplpf_loss
 
     def get_current_loss(self):
@@ -377,7 +404,7 @@ class CubicFilter(nn.Module):
         self.cubic_layer8 = GlobalPoolingBlock(2)
         self.fc_cubic = torch.nn.Linear(
             num_out_channels, 60)  # cubic
-        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear')
+        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear', align_corners=True)
         self.dropout = nn.Dropout(0.5)
 
     def get_cubic_mask(self, feat, img):
@@ -491,7 +518,7 @@ class GraduatedFilter(nn.Module):
         self.graduated_layer8 = GlobalPoolingBlock(2)
         self.fc_graduated = torch.nn.Linear(
             num_out_channels, 24)
-        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear')
+        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear', align_corners=True)
         self.dropout = nn.Dropout(0.5)
         self.bin_layer = BinaryLayer()
 
@@ -712,7 +739,7 @@ class EllipticalFilter(nn.Module):
         self.elliptical_layer8 = GlobalPoolingBlock(2)
         self.fc_elliptical = torch.nn.Linear(
             num_out_channels, 24)  # elliptical
-        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear')
+        self.upsample = torch.nn.Upsample(size=(300, 300), mode='bilinear', align_corners=True)
         self.dropout = nn.Dropout(0.5)
 
     def tanh01(self, x):

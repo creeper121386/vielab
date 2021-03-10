@@ -28,8 +28,11 @@ OUTPUT_IMG = 'output_img'
 NAME = 'name'
 
 # config.yml
-MODEL_PATH = 'model_path'
-SAVE_MODEL_EVERY = 'save_model_every'
+CHECKPOINT_PATH = 'checkpoint_path'
+LOG_DIRPATH = 'log_dirpath'
+IMG_DIRPATH = 'img_dirpath'
+# SAVE_MODEL_EVERY = 'save_model_every'
+DATALOADER_NUM_WORKER = 'dataloader_num_worker'
 INPUT_DIRPATH = 'input_dirpath'
 VALID_EVERY = 'valid_every'
 GT_DIRPATH = 'GT_dirpath'
@@ -37,7 +40,7 @@ AUGMENTATION = 'aug'
 NUM_EPOCH = 'num_epoch'
 LOG_EVERY = 'log_every'
 EXPNAME = 'name'
-LOSSES = 'loss'
+LOSS = 'loss'
 DATA = 'ds'
 GPU = 'gpu'
 RUNTIME = 'runtime'
@@ -90,13 +93,13 @@ TRAIN_NECESSARY_ARGUMENTS = [
     NUM_EPOCH,
     VALID_EVERY,
     LOG_EVERY,
-    SAVE_MODEL_EVERY,
+    # SAVE_MODEL_EVERY,
     AUGMENTATION,
 ]
 
 # extra required arguments for all models when testing/evaluating:
 TEST_NECESSARY_ARGUMENTS = [
-    MODEL_PATH,
+    CHECKPOINT_PATH,
 ]
 
 # extra required arguments for each model:
