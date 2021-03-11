@@ -27,10 +27,7 @@ def main(config):
 
     # Loading data:
     transform = parseAugmentation(opt)
-    training_dataset = ImagesDataset(
-        opt, data_dict=None,
-        transform=transform,
-    )
+    training_dataset = ImagesDataset(opt, data_dict=None, transform=transform)
     trainloader = torch.utils.data.DataLoader(
         training_dataset,
         batch_size=1,
@@ -47,14 +44,13 @@ def main(config):
         filename='{epoch:}-{step}-{loss:.3f}',
         save_top_k=10,  # save 10 model
         monitor='loss',
-        # period=opt[SAVE_MODEL_EVERY],
     )
 
     # trainer logger:
     comet_logger = CometLogger(
         api_key=os.environ.get('COMET_API_KEY'),
         workspace=os.environ.get('COMET_WORKSPACE'),  # Optional
-        # save_dir='../',  # Optional
+        # save_dir='../',  # used in local mode
         project_name='vielab',  # Optional
         experiment_name=opt[EXPNAME]  # Optional
     )
@@ -69,8 +65,8 @@ def main(config):
     # init trainer:
     trainer = pl.Trainer(
         gpus=opt[GPU],
-        # auto_select_gpus=True,
         distributed_backend='dp',
+        # auto_select_gpus=True,
         max_epochs=opt[NUM_EPOCH],
         logger=comet_logger,
         callbacks=[checkpoint_callback],

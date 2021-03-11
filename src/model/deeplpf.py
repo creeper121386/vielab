@@ -112,36 +112,33 @@ class DeepLpfLitModel(pl.core.LightningModule):
     def test_batch_without_gt(self, batch):
         pass
 
-    def validation_step(self, batch, batch_ix):
+    def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], data[NAME]
+        input_batch, fname = batch[INPUT_IMG], batch[NAME]
         output_dict = self.net(input_batch)
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
+
+        # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
+        fname = fname[0]
         saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
         if PREDICT_ILLUMINATION in output_dict:
             saveTensorAsImg(
                 output_dict[PREDICT_ILLUMINATION],
-                os.path.join(self.illumination_path, osp.basename(fname))
+                os.path.join(self.illumination_dirpath, osp.basename(fname))
             )
 
         # test with GT:
-        if [OUTPUT_IMG] in batch:
+        if OUTPUT_IMG in batch:
             # calculate metrics:
             output_ = output.clone().detach().cpu().numpy()
             y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
             psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
             ssim = ImageProcessing.compute_ssim(output_, y_)
-            self.log({PSNR: psnr, SSIM: ssim}, on_step=True, on_epoch=True)
-
-    #
-    # def validation_epoch_end(self, outputs):
-    #     pass
+            for x, y in {PSNR: psnr, SSIM: ssim}.items():
+                self.log(x, y, on_step=True, on_epoch=True)
 
     def forward(self, x):
         return self.net(x)
-
-    # def validation_step(self, batch, batch_idx):
-    #     pass
 
 
 class DeepLPFLoss(nn.Module):

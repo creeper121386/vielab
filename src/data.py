@@ -89,7 +89,6 @@ class ImagesDataset(torch.utils.data.Dataset):
 
         """
         res_item = {NAME: self.input_list[idx]}
-
         seed = random.randint(0, 100000)
         input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
         input_img = self.augment_one_img(input_img, seed)
@@ -99,5 +98,4 @@ class ImagesDataset(torch.utils.data.Dataset):
             output_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
             output_img = self.augment_one_img(output_img, seed)
             res_item[OUTPUT_IMG] = output_img
-
         return res_item

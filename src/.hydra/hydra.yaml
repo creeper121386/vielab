@@ -107,24 +107,23 @@ hydra:
     hydra: []
     task:
       - +ds=local-debug
-      - log_every=1
-      - +runtime=deeplpf.default
       - gpu=0
-      - num_epoch=5
-      - dataloader_num_worker=0
+      - +runtime=deeplpf.default
+      - aug=none
+      - checkpoint_path=../train_log/deeplpf/default_name_2021-03-11_18:20:10/last.ckpt
   job:
-    name: train
-    override_dirname: +ds=local-debug,+runtime=deeplpf.default,dataloader_num_worker=0,gpu=0,log_every=1,num_epoch=5
+    name: test
+    override_dirname: +ds=local-debug,+runtime=deeplpf.default,aug=none,checkpoint_path=../train_log/deeplpf/default_name_2021-03-11_18:20:10/last.ckpt,gpu=0
     id: ???
     num: ???
     config_name: config
-    env_set: {}
-    env_copy: []
+    env_set: { }
+    env_copy: [ ]
     config:
       override_dirname:
         kv_sep: '='
         item_sep: ','
-        exclude_keys: []
+        exclude_keys: [ ]
   runtime:
     version: 1.0.6
     cwd: /Users/why/dev/pycharm-project/vielab/src

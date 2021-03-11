@@ -1,5 +1,5 @@
 # @package _group_
 # 没有任何实际含义，仅做测试用
 
-GT_dirpath: /Users/why/dev/dataset/vielab-debug/gt
-input_dirpath: /Users/why/dev/dataset/vielab-debug/input
+GT: /Users/why/dev/dataset/vielab-debug/gt/*
+input: /Users/why/dev/dataset/vielab-debug/input/*

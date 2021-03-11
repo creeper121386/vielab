@@ -79,6 +79,18 @@ also be loaded at the same time, but it's OK cause `test.py` and `eval.py` will 
 If you want to define some extra necessary parameters for testing/evaluation other than training parameters, you could
 create a new `yaml` in `runtime` group.
 
+### Use logger
+
+The project uses `comet_ml` as experiment logger. Before running, make sure you have an account in comet_ml and set the
+environment variables as follows:
+
+```shell
+export COMET_API_KEY=<your_api_key>
+export COMET_WORKSPACE=<your_workspace>
+```
+
+If you don't have `comet_ml` account, you could use other loggers supported by `pytorch-lightning` if you want.
+
 ### Use GPU
 
 Argument `gpu` can be an integer which means number of gpus to train on, or a list which GPUs to train on.
@@ -86,9 +98,14 @@ Argument `gpu` can be an integer which means number of gpus to train on, or a li
 Examples:
 
 ```shell
-python train.py [OTHER_ARGS...] gpu=2     # use 2 gpus
-python train.py [OTHER_ARGS...] gpu=0     # don't use gpu
-python train.py [OTHER_ARGS...] gpu='[1,2,3]'   # use gpu1, gpu2 and gpu3
+# use 2 gpus
+python train.py [OTHER_ARGS...] gpu=2     
+
+# don't use gpu
+python train.py [OTHER_ARGS...] gpu=0     
+
+# use gpu1, gpu2 and gpu3 (Note that the quotes are necessary!)
+python train.py [OTHER_ARGS...] gpu='[1,2,3]'   
 ```
 
 ### Reference

@@ -1,6 +1,5 @@
 - +ds=local-debug
-- log_every=1
-- +runtime=deeplpf.default
 - gpu=0
-- num_epoch=5
-- dataloader_num_worker=0
+- +runtime=deeplpf.default
+- aug=none
+- checkpoint_path=../train_log/deeplpf/default_name_2021-03-11_18:20:10/last.ckpt
