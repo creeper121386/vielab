@@ -31,7 +31,6 @@ NAME = 'name'
 CHECKPOINT_PATH = 'checkpoint_path'
 LOG_DIRPATH = 'log_dirpath'
 IMG_DIRPATH = 'img_dirpath'
-# SAVE_MODEL_EVERY = 'save_model_every'
 DATALOADER_NUM_WORKER = 'dataloader_num_worker'
 INPUT_DIRPATH = 'input_dirpath'
 VALID_EVERY = 'valid_every'
@@ -51,6 +50,10 @@ LTV_LOSS = 'ltv'
 COS_LOSS = 'cos'
 SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
+
+# metrics
+PSNR = 'psnr'
+SSIM = 'ssim'
 
 # config.aug
 VERTICAL_FLIP = 'v-flip'

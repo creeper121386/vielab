@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-import os.path
 import random
+from glob import glob
 
 import cv2
 import numpy as np
@@ -10,7 +9,7 @@ from globalenv import *
 
 
 class ImagesDataset(torch.utils.data.Dataset):
-    def __init__(self, opt, data_dict, transform=None, normaliser=2 ** 8 - 1, is_valid=False):
+    def __init__(self, opt, data_dict, transform=None):
         """Initialisation for the Dataset object
 
         :param data_dict: dictionary of dictionaries containing images
@@ -21,42 +20,29 @@ class ImagesDataset(torch.utils.data.Dataset):
         """
         self.transform = transform
         self.data_dict = data_dict
-        self.normaliser = normaliser
-        self.is_valid = is_valid
         self.opt = opt
 
-        dir_this_GT = opt[DATA][GT_DIRPATH]
-        dir_this_input = opt[DATA][INPUT_DIRPATH]
+        gt_glob = opt[DATA][GT_DIRPATH]
+        input_glob = opt[DATA][INPUT_DIRPATH]
+        self.have_gt = True if gt_glob else False
 
-        console.log(f'GT Directory path: [red]{dir_this_GT}[/red]')
-        console.log(f'Input Directory path: [red]{dir_this_input}[/red]')
+        console.log(f'GT Directory path: [yellow]{gt_glob}[/yellow]')
+        console.log(f'Input Directory path: [yellow]{input_glob}[/yellow]')
 
-        self.train_ids = []
+        # load input images:
+        self.input_list = glob(input_glob)
 
-        name_list_GT = []
-        name_list_input = []
-        for im_name in os.listdir(dir_this_GT):
-            name_list_GT.append(im_name)
-        for im_name in os.listdir(dir_this_input):
-            name_list_input.append(im_name)
-        name_list_GT.sort()
-        name_list_input.sort()
-        assert len(name_list_GT) == len(name_list_input)
-        console.log('Dataset length: ', len(name_list_GT))
-        for nn in range(len(name_list_GT)):
-            self.train_ids.append([os.path.join(dir_this_GT, name_list_GT[nn]), os.path.join(
-                dir_this_input, name_list_input[nn])])
+        # load GT images:
+        if self.have_gt:
+            self.gt_list = glob(gt_glob)
+            assert len(self.input_list) == len(self.gt_list)
+
+        console.log('Dataset length: ', len(self.input_list))
 
     def __len__(self):
-        """Returns the number of images in the dataset
+        return (len(self.input_list))
 
-        :returns: number of images in the dataset
-        :rtype: Integer
-
-        """
-        return (len(self.train_ids))
-
-    def applyTransformForOneImg(self, img, seed):
+    def augment_one_img(self, img, seed):
         height = img.shape[0]
         width = img.shape[1]
 
@@ -102,136 +88,16 @@ class ImagesDataset(torch.utils.data.Dataset):
         :rtype: dictionary
 
         """
-
-        output_img = cv2.imread(self.train_ids[idx][0])[:, :, [2, 1, 0]]
-        input_img = cv2.imread(self.train_ids[idx][1])[:, :, [2, 1, 0]]
+        res_item = {NAME: self.input_list[idx]}
 
         seed = random.randint(0, 100000)
-        input_img = self.applyTransformForOneImg(input_img, seed)
-        output_img = self.applyTransformForOneImg(output_img, seed)
+        input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
+        input_img = self.augment_one_img(input_img, seed)
+        res_item[INPUT_IMG] = input_img
 
-        return {
-            INPUT_IMG: input_img,
-            OUTPUT_IMG: output_img,
-            NAME: self.train_ids[idx][1]
-        }
+        if self.have_gt:
+            output_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
+            output_img = self.augment_one_img(output_img, seed)
+            res_item[OUTPUT_IMG] = output_img
 
-# class DataLoader():
-#
-#     def __init__(self, data_dirpath, img_ids_filepath):
-#         """Initialization function for the data loader
-#
-#         :param data_dirpath: directory containing the data
-#         :param img_ids_filepath: file containing the ids of the images to load
-#         :returns: N/A
-#         :rtype: N/A
-#
-#         """
-#         self.data_dirpath = data_dirpath
-#         self.img_ids_filepath = img_ids_filepath
-#
-#     @abstractmethod
-#     def load_data(self):
-#         """Abstract function for the data loader class
-#
-#         :returns: N/A
-#         :rtype: N/A
-#
-#         """
-#         pass
-#
-#     @abstractmethod
-#     def perform_inference(self, net, data_dirpath):
-#         """Abstract function for the data loader class
-#
-#         :returns: N/A
-#         :rtype: N/A
-#
-#         """
-#         pass
-#
-#
-# class Adobe5kDataLoader(DataLoader):
-#
-#     def __init__(self, data_dirpath, img_ids_filepath):
-#         """Initialization function for the data loader
-#
-#         :param data_dirpath: directory containing the data
-#         :param img_ids_filepath: file containing the ids of the images to load
-#         :returns: N/A
-#         :rtype: N/A
-#
-#         """
-#         super().__init__(data_dirpath, img_ids_filepath)
-#         self.data_dict = defaultdict(dict)
-#
-#     def load_data(self):
-#         """ Loads the Samsung image data into a Python dictionary
-#
-#         :returns: Python two-level dictionary containing the images
-#         :rtype: Dictionary of dictionaries
-#
-#         """
-#
-#         logging.info("Loading Adobe5k dataset ...")
-#
-#         with open(self.img_ids_filepath) as f:
-#             '''
-#             Load the image ids into a list data structure
-#             '''
-#             image_ids = f.readlines()
-#             # you may also want to remove whitespace characters like `\n` at the end of each line
-#             image_ids_list = [x.rstrip() for x in image_ids]
-#
-#         idx = 0
-#         idx_tmp = 0
-#         img_id_to_idx_dict = {}
-#
-#         for root, dirs, files in os.walk(self.data_dirpath):
-#
-#             for file in files:
-#
-#                 img_id = file.split(".")[0]
-#
-#                 is_id_in_list = False
-#                 for img_id_test in image_ids_list:
-#                     if img_id_test == img_id:
-#                         is_id_in_list = True
-#                         break
-#
-#                 if is_id_in_list:  # check that the image is a member of the appropriate training/test/validation split
-#                     if not img_id in img_id_to_idx_dict.keys():
-#                         img_id_to_idx_dict[img_id] = idx
-#                         self.data_dict[idx] = {}
-#                         self.data_dict[idx][INPUT_IMG] = None
-#                         self.data_dict[idx][OUTPUT_IMG] = None
-#                         idx_tmp = idx
-#                         idx += 1
-#                     else:
-#                         idx_tmp = img_id_to_idx_dict[img_id]
-#
-#                     if "input" in root:  # change this to the name of your
-#                         # input data folder
-#
-#                         input_img_filepath = file
-#
-#                         self.data_dict[idx_tmp][INPUT_IMG] = root + \
-#                             "/" + input_img_filepath
-#
-#                     elif ("output" in root):  # change this to the name of your
-#                         # output data folder
-#
-#                         output_img_filepath = file
-#
-#                         self.data_dict[idx_tmp][OUTPUT_IMG] = root + \
-#                             "/" + output_img_filepath
-#
-#                 else:
-#
-#                     logging.debug("Excluding file with id: " + str(img_id))
-#
-#         for idx, imgs in self.data_dict.items():
-#             assert (INPUT_IMG in imgs)
-#             assert (OUTPUT_IMG in imgs)
-#
-#         return self.data_dict
+        return res_item

@@ -12,14 +12,12 @@ from globalenv import *
 from model.deeplpf import DeepLpfLitModel
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CometLogger
-from torch.utils.tensorboard import SummaryWriter
 from util import checkConfig, configLogging, parseAugmentation
-
-writer = SummaryWriter()
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
+    # config and logging:
     opt = checkConfig(config, TRAIN)
     console.log('Parameters:', opt, log_locals=False)
 
@@ -27,12 +25,11 @@ def main(config):
     pl_logger = logging.getLogger("lightning")
     pl_logger.propagate = False
 
-    ## Loading data:
+    # Loading data:
     transform = parseAugmentation(opt)
     training_dataset = ImagesDataset(
         opt, data_dict=None,
         transform=transform,
-        normaliser=2 ** 8 - 1, is_valid=False
     )
     trainloader = torch.utils.data.DataLoader(
         training_dataset,
@@ -53,7 +50,7 @@ def main(config):
         # period=opt[SAVE_MODEL_EVERY],
     )
 
-    # logger:
+    # trainer logger:
     comet_logger = CometLogger(
         api_key=os.environ.get('COMET_API_KEY'),
         workspace=os.environ.get('COMET_WORKSPACE'),  # Optional
@@ -61,12 +58,15 @@ def main(config):
         project_name='vielab',  # Optional
         experiment_name=opt[EXPNAME]  # Optional
     )
-    # train:
+
+    # init model:
     if opt[CHECKPOINT_PATH]:
         model = DeepLpfLitModel.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
         console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
     else:
         model = DeepLpfLitModel(opt)
+
+    # init trainer:
     trainer = pl.Trainer(
         gpus=opt[GPU],
         # auto_select_gpus=True,
@@ -76,6 +76,7 @@ def main(config):
         callbacks=[checkpoint_callback],
     )
 
+    # training loop
     trainer.fit(model, trainloader)
 
 

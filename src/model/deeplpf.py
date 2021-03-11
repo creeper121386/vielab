@@ -42,6 +42,11 @@ class DeepLpfLitModel(pl.core.LightningModule):
             COS_LOSS: 0,
             LOSS: 0
         }
+
+        self.metrics = {
+            PSNR: 0,
+            SSIM: 0
+        }
         self.iternum = 0
         self.epoch = 0
         self.opt = opt
@@ -75,6 +80,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
         output_dict = self.net(input_batch)
         output = torch.clamp(
             output_dict[OUTPUT], 0.0, 1.0)
+
         loss = self.criterion(output_dict, gt_batch)
         this_losses = self.criterion.get_current_loss()
 
@@ -102,6 +108,34 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
     def training_epoch_end(self, outputs):
         self.epoch += 1
+
+    def test_batch_without_gt(self, batch):
+        pass
+
+    def validation_step(self, batch, batch_ix):
+        # test without GT image:
+        input_batch, fname = batch[INPUT_IMG], data[NAME]
+        output_dict = self.net(input_batch)
+        output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
+        saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+        if PREDICT_ILLUMINATION in output_dict:
+            saveTensorAsImg(
+                output_dict[PREDICT_ILLUMINATION],
+                os.path.join(self.illumination_path, osp.basename(fname))
+            )
+
+        # test with GT:
+        if [OUTPUT_IMG] in batch:
+            # calculate metrics:
+            output_ = output.clone().detach().cpu().numpy()
+            y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
+            psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
+            ssim = ImageProcessing.compute_ssim(output_, y_)
+            self.log({PSNR: psnr, SSIM: ssim}, on_step=True, on_epoch=True)
+
+    #
+    # def validation_epoch_end(self, outputs):
+    #     pass
 
     def forward(self, x):
         return self.net(x)
