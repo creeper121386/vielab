@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import hydra
+
+import comet_ml
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-import hydra
 import pytorch_lightning as pl
 import torch
 from data import ImagesDataset
@@ -12,14 +14,16 @@ from globalenv import *
 from model.deeplpf import DeepLpfLitModel
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CometLogger
-from util import checkConfig, configLogging, parseAugmentation
+from util import checkConfig, configLogging, parseAugmentation, init_config
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
     # config and logging:
+    config = init_config(config)
     opt = checkConfig(config, TRAIN)
-    console.log('Parameters:', opt, log_locals=False)
+    # tab_complete(opt)
+    console.log('Running config:', opt, log_locals=False)
 
     opt[LOG_DIRPATH], opt[IMG_DIRPATH] = configLogging(TRAIN, opt)
     pl_logger = logging.getLogger("lightning")
@@ -47,6 +51,7 @@ def main(config):
     )
 
     # trainer logger:
+    comet_ml.config.DEBUG = False
     comet_logger = CometLogger(
         api_key=os.environ.get('COMET_API_KEY'),
         workspace=os.environ.get('COMET_WORKSPACE'),  # Optional

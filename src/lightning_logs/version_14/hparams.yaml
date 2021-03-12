@@ -1,0 +1,26 @@
+name: default_name
+num_epoch: 1000
+gpu: 0
+valid_every: 10
+log_every: 100
+dataloader_num_worker: 4
+checkpoint_path: ../train_log/deeplpf/default_name_2021-03-11_18:20:10/last.ckpt
+aug:
+  crop: false
+  resize: false
+  h-flip: false
+  v-flip: false
+ds:
+  GT: /Users/why/dev/dataset/vielab-debug/gt/*
+  input: /Users/why/dev/dataset/vielab-debug/input/*
+runtime:
+  modelname: deeplpf
+  predict_illumination: true
+  loss:
+    ltv: false
+    cos: 0.1
+  filters:
+    g: true
+    e: true
+log_dirpath: ../test_log/deeplpf/default_name_2021-03-11_18:57:04
+img_dirpath: ../test_log/deeplpf/default_name_2021-03-11_18:57:04/images

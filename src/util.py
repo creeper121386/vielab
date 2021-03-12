@@ -17,6 +17,7 @@ import os
 import os.path as osp
 
 import cv2
+import ipdb
 import numpy as np
 import omegaconf
 import torch
@@ -26,6 +27,67 @@ from matplotlib.image import imread
 from skimage import measure
 from torch.autograd import Variable
 from torchvision import transforms
+
+import argcomplete, argparse
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import FuzzyWordCompleter, PathCompleter
+from rich import print
+from rich.markdown import Markdown
+
+
+def init_config(opt):
+    def hint(k):
+        os.system('clear')
+        console.print(f'[yellow]* Current `{k}` config is:[/yellow]')
+        console.print(opt[k])
+        print()
+
+    opt = omegaconf.OmegaConf.to_container(opt)
+    updated_contens = {}
+
+    # update data, runtime config:
+    for k in [DATA, RUNTIME]:
+        hint(k)
+        console.print('[yellow]* Available values:[/yellow]')
+        value_list = os.listdir(osp.join(CONFIG_DIRPATH, k))
+        completer = FuzzyWordCompleter(value_list)
+        console.print(Markdown(
+                ''.join(['\n- ' + x for x in value_list])
+            ))
+        print()
+        in_value = None
+        while True:
+            in_value = prompt(f'* Enter the new value of `{k}` (Enter {SKIP_FLAG} to skip): ', completer=completer, complete_while_typing=True)
+            if in_value in [*value_list, SKIP_FLAG]:
+                break
+
+        if in_value != SKIP_FLAG:
+            opt[k] = parseSingleYmlConfig(osp.join(CONFIG_DIRPATH, k, in_value))
+            updated_contens[k] = opt[k]
+
+    # update path config:
+    for k in [CHECKPOINT_PATH]:
+        path_completer = PathCompleter()
+        hint(k)
+        in_value = None
+        while True:
+            in_value = prompt(f'* Enter the new value of `{k}` (Enter {SKIP_FLAG} to skip): ', completer=path_completer,
+                              complete_while_typing=True)
+            if osp.exists(in_value) or in_value == SKIP_FLAG:
+                break
+        if in_value != SKIP_FLAG:
+            opt[k] = in_value
+            ted_contens[k] = opt[k]
+
+    # start running
+    os.system('clear')
+    console.log('Start running program.')
+    if len(updated_contens):
+        console.log('You have changed the following config:')
+        console.log(updated_contens)
+        print()
+
+    return opt
 
 
 def calculate_psnr(img1, img2):
@@ -191,11 +253,13 @@ def checkConfig(opt, mode):
     for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
         checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
 
-    return omegaconf.OmegaConf.to_container(opt)
+    if type(opt) == omegaconf.DictConfig:
+        return omegaconf.OmegaConf.to_container(opt)
+    return opt
 
 
 # (Discarded)
-def parseSingleYmlConfig(ymlpath, mode):
+def parseSingleYmlConfig(ymlpath):
     '''
     input config file path (yml file), return config dict.
     '''
@@ -208,7 +272,7 @@ def parseSingleYmlConfig(ymlpath, mode):
         ymlContent = open(ymlpath, 'r').read()
 
     yml = yaml.load(ymlContent)
-    return checkConfig(yml, mode)
+    return yml
 
 
 class ImageProcessing(object):

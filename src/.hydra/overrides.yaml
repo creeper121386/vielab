@@ -1,5 +1,0 @@
-- +ds=local-debug
-- gpu=0
-- +runtime=deeplpf.default
-- aug=none
-- checkpoint_path=../train_log/deeplpf/default_name_2021-03-11_18:20:10/last.ckpt

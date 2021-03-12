@@ -11,7 +11,8 @@ checkpoint_path: false # false for do not load runtime. Necessary when testing.
 # define config groups:
 defaults:
   - aug: crop512
-#  - runtime: deeplpf.default
+  - ds: local-debug
+  - runtime: deeplpf.default
 
 hydra:
   run:
