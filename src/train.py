@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
-import hydra
 
 import comet_ml
+import hydra
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -14,13 +14,13 @@ from globalenv import *
 from model.deeplpf import DeepLpfLitModel
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CometLogger
-from util import checkConfig, configLogging, parseAugmentation, init_config
+from util import checkConfig, configLogging, parseAugmentation
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
     # config and logging:
-    config = init_config(config)
+    # config = init_config(config)
     opt = checkConfig(config, TRAIN)
     # tab_complete(opt)
     console.log('Running config:', opt, log_locals=False)

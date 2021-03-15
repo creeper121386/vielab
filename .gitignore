@@ -1,6 +1,7 @@
 .idea
 .vscode/
 src/runs/
+.vielab-history
 src/.hydra/
 src/outputs/
 src/*.log

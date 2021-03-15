@@ -1,0 +1,199 @@
+#!python
+import os.path as osp
+
+import prompt_toolkit
+import yaml
+from globalenv import *
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import FuzzyWordCompleter, Completer, Completion
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
+
+if len(sys.argv) != 2:
+    print('Usage: ./vash <mode>')
+    sys.exit()
+mode = sys.argv[1]
+assert mode in [TRAIN, TEST]
+
+
+class VashCompleter(Completer):
+    def __init__(self, conf):
+        conf.pop(HYDRA, None)
+        conf.pop(DEFAULTS, None)
+        self.conf = conf
+        self.args_names = list(conf.keys())
+        self.groups = [x for x in os.listdir(CONFIG_DIRPATH) if osp.isdir(osp.join(CONFIG_DIRPATH, x))]
+        self.args_values = {x: get_field_words(x) for x in self.groups}
+        self.args_names.extend(self.groups)
+
+    def get_path(self, text):
+        self.get_paths = lambda: ["."]
+        try:
+            # Directories where to look.
+            dirname = os.path.dirname(text)
+            if dirname:
+                directories = [
+                    os.path.dirname(os.path.join(p, text)) for p in self.get_paths()
+                ]
+            else:
+                directories = self.get_paths()
+
+            # Start of current file.
+            prefix = os.path.basename(text)
+
+            # Get all filenames.
+            filenames = []
+            for directory in directories:
+                # Look for matches in this directory.
+                if os.path.isdir(directory):
+                    for filename in os.listdir(directory):
+                        if filename.startswith(prefix):
+                            filenames.append((directory, filename))
+
+            # Sort
+            filenames = sorted(filenames, key=lambda k: k[1])
+
+            # Yield them.
+            res = []
+            for directory, filename in filenames:
+                completion = filename[len(prefix):]
+                # completion = filename
+                full_name = os.path.join(directory, filename)
+
+                if os.path.isdir(full_name):
+                    # For directories, add a slash to the filename.
+                    # (We don't add them to the `completion`. Users can type it
+                    # to trigger the autocompletion themselves.)
+                    filename += "/"
+
+                res.append(completion)
+            return res
+        except OSError:
+            pass
+
+    def get_completions(self, document, complete_event):
+        # document is the whole string entered by user.
+        word_before_cursor = (document._text
+            .split('=')[-1]
+            .split('.')[-1]
+            .split(' ')[-1])
+        position = -len(word_before_cursor)
+
+        last_word = document._text.split(' ')[-1]
+        if '=' in last_word:
+            # last word: value1=
+            # complete a args value
+            arg = last_word.split('=')[0]
+            # console.print(last_word, arg, style='bold')
+            if '.' not in arg:
+
+                if arg == CHECKPOINT_PATH:
+                    # complete path
+                    for x in self.get_path(last_word.split('=')[-1]):
+                        yield Completion(x, start_position=0)
+                else:
+                    # complete other values
+                    if arg in self.args_values:
+                        for x in self.args_values[arg]:
+                            yield Completion(x, start_position=position)
+
+            else:
+                # complete a multi-level dict node value:
+                # for x in args_values[arg]:
+                #     yield Completion(x, start_position=position)
+                if arg in [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}']:
+                    # complete value for ds.GT, ds.input
+                    for x in self.get_path(last_word.split('=')[-1]):
+                        yield Completion(x, start_position=0)
+                else:
+                    # complete value for other multi-level nodes.
+                    pass
+
+        elif '.' not in last_word:
+            # last word: value1
+            # complete a arg name
+            for x in self.args_names:
+                if last_word in x:
+                    yield Completion(x, start_position=position)
+        else:
+            # last word: value1.value2.value3
+            # complete a arg multi-level node name
+            nodes = last_word.split('.')
+            value1 = nodes[0]
+            sub_dict = None
+            if value1 in self.conf:
+                # search in config.yaml
+                sub_dict = self.conf[value1]
+                if type(sub_dict) not in [list, dict]:
+                    # avoid the situation that self.conf[value1] exists but is a string.
+                    sub_dict = None
+            elif value1 in self.groups:
+                # search in group directory:
+                group_dirpath = osp.join(CONFIG_DIRPATH, value1)
+                if len(os.listdir(group_dirpath)) == 0:
+                    # not group dir is empty, pass
+                    sub_dict = None
+                else:
+                    sample_file = os.listdir(group_dirpath)[0]
+                    sub_dict = yaml.load(open(osp.join(group_dirpath, sample_file), 'r').read(), Loader=yaml.FullLoader)
+
+            if type(sub_dict) in [list, dict]:
+                for x in nodes[1:]:
+                    # value2, value3 ... current_value
+                    if x in sub_dict and type(sub_dict) in [list, dict]:
+                        # ipdb.set_trace()
+                        sub_dict = sub_dict[x]
+                    else:
+                        # wrong key
+                        break
+
+                if type(sub_dict) in [list, dict]:
+                    for x in sub_dict.keys():
+                        yield Completion(x, start_position=position)
+
+
+def bottom_toolbar():
+    return HTML('Example: name=exp001 ds=local-debug runtime=deeplpf.default aug=crop512')
+
+
+def get_field_words(field):
+    value_list = os.listdir(osp.join(CONFIG_DIRPATH, field))
+    # return [field + '=' + x.replace('.yaml', '') for x in value_list]
+    return [x.replace('.yaml', '') for x in value_list]
+
+
+def complete_cmd():
+    total_args = []
+    for field in [DATA, RUNTIME, AUGMENTATION]:
+        total_args.extend(get_field_words(field))
+
+    args_completer = FuzzyWordCompleter(total_args)
+    # print(total_args)
+
+    conf = yaml.load(open(CONFIG_FILEPATH, 'r').read(), Loader=yaml.FullLoader)
+    completer = VashCompleter(conf)
+
+    args = prompt_toolkit.prompt(
+        f'➜ Enter hydra arguments:\n➜ python {mode}.py ',
+        completer=completer,
+        complete_while_typing=True,
+        bottom_toolbar=bottom_toolbar,
+        history=FileHistory('../.vielab-history'),
+        auto_suggest=AutoSuggestFromHistory(),
+        complete_in_thread=True,
+    )
+    args = ' '.join(args.split()) + ' '
+    # TODO: 在得到args后，为每一个参数包裹双引号
+    # def repl(s):
+    #     return ''.join(["'" + x.strip() + "'" for x in s.groups()])
+    # args = re.sub('.*?=.*? ', repl, args)
+    # for x in re.findall(r'', args):
+    #     args = args.replace(x, f"'{x}'")
+
+    cmd = f'python {mode}.py {args}'
+    console.log(f'Start executing command:\n>>> {cmd}')
+    # os.system(cmd)
+
+
+if __name__ == '__main__':
+    complete_cmd()
