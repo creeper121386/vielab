@@ -1,4 +1,6 @@
 # @package _group_
 
 modelname: 3dlut
+loss:
+  loss2: false
 

@@ -1,4 +1,5 @@
 #!python
+import os
 import os.path as osp
 
 import prompt_toolkit
@@ -25,6 +26,7 @@ class VashCompleter(Completer):
         self.groups = [x for x in os.listdir(CONFIG_DIRPATH) if osp.isdir(osp.join(CONFIG_DIRPATH, x))]
         self.args_values = {x: get_field_words(x) for x in self.groups}
         self.args_names.extend(self.groups)
+        self.illegal_characters = ('+', ' ', '=')
 
     def get_path(self, text):
         self.get_paths = lambda: ["."]
@@ -66,10 +68,33 @@ class VashCompleter(Completer):
                     # to trigger the autocompletion themselves.)
                     filename += "/"
 
+                for y in self.illegal_characters:
+                    if y in completion:
+                        completion = f"'{completion}'"
+
                 res.append(completion)
+
             return res
         except OSError:
             pass
+
+    # def merge_dict(self, dicts, res):
+    #     d0 = dicts[0]
+    #     depths = [x for x in ]
+    #     for d in dicts:
+    #         d0.update(d)
+
+    def locate_current_node(self, nodes, sub_dict):
+        nodes = nodes[:-1]
+        current_dict = sub_dict
+        for x in nodes[1:]:
+            # nodes: value2, value3 ... current_value
+            if type(current_dict) == dict and x in current_dict:
+                current_dict = current_dict[x]
+            else:
+                # wrong key
+                return None
+        return current_dict
 
     def get_completions(self, document, complete_event):
         # document is the whole string entered by user.
@@ -124,32 +149,40 @@ class VashCompleter(Completer):
             if value1 in self.conf:
                 # search in config.yaml
                 sub_dict = self.conf[value1]
-                if type(sub_dict) not in [list, dict]:
+                if type(sub_dict) != dict:
                     # avoid the situation that self.conf[value1] exists but is a string.
                     sub_dict = None
+
             elif value1 in self.groups:
                 # search in group directory:
                 group_dirpath = osp.join(CONFIG_DIRPATH, value1)
-                if len(os.listdir(group_dirpath)) == 0:
-                    # not group dir is empty, pass
-                    sub_dict = None
-                else:
-                    sample_file = os.listdir(group_dirpath)[0]
-                    sub_dict = yaml.load(open(osp.join(group_dirpath, sample_file), 'r').read(), Loader=yaml.FullLoader)
+                if len(os.listdir(group_dirpath)):
+                    # add all yaml files under `group_dirpath` to sub-dict:
+                    sub_dict = [
+                        yaml.load(open(osp.join(group_dirpath, sample_file), 'r').read(), Loader=yaml.FullLoader)
+                        for sample_file in os.listdir(group_dirpath)]
 
-            if type(sub_dict) in [list, dict]:
-                for x in nodes[1:]:
-                    # value2, value3 ... current_value
-                    if x in sub_dict and type(sub_dict) in [list, dict]:
-                        # ipdb.set_trace()
-                        sub_dict = sub_dict[x]
-                    else:
-                        # wrong key
-                        break
-
-                if type(sub_dict) in [list, dict]:
-                    for x in sub_dict.keys():
+            if type(sub_dict) == dict:
+                current_dict = self.locate_current_node(nodes, sub_dict)
+                if type(current_dict) == dict:
+                    # only complete key
+                    for x in current_dict.keys():
                         yield Completion(x, start_position=position)
+
+            elif type(sub_dict) == list:
+                # print(sub_dict)
+                # type is:  List[ dict ]
+                yields = set()
+                for d in sub_dict:
+                    current_dict = self.locate_current_node(nodes, d)
+                    # print(current_dict)
+                    if type(current_dict) == dict:
+                        # only complete key
+                        for x in current_dict.keys():
+                            yields.add(x)
+
+                for x in yields:
+                    yield Completion(x, start_position=position)
 
 
 def bottom_toolbar():
@@ -192,7 +225,7 @@ def complete_cmd():
 
     cmd = f'python {mode}.py {args}'
     console.log(f'Start executing command:\n>>> {cmd}')
-    # os.system(cmd)
+    os.system(cmd)
 
 
 if __name__ == '__main__':
