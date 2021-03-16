@@ -243,7 +243,7 @@ def checkConfig(opt, mode):
     for x in necessaryFields:
         checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
 
-    # check necessary argments for EACH MODEL:
+    # check necessary arguments for EACH MODEL:
     assert opt[RUNTIME][MODELNAME] in SUPPORTED_MODELS
     for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
         checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')

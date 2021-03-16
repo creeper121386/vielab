@@ -9,7 +9,7 @@ from globalenv import *
 
 
 class ImagesDataset(torch.utils.data.Dataset):
-    def __init__(self, opt, data_dict, transform=None):
+    def __init__(self, opt, data_dict, ds_type=DATA, transform=None):
         """Initialisation for the Dataset object
 
         :param data_dict: dictionary of dictionaries containing images
@@ -22,8 +22,8 @@ class ImagesDataset(torch.utils.data.Dataset):
         self.data_dict = data_dict
         self.opt = opt
 
-        gt_glob = opt[DATA][GT_DIRPATH]
-        input_glob = opt[DATA][INPUT_DIRPATH]
+        gt_glob = opt[ds_type][GT_DIRPATH]
+        input_glob = opt[ds_type][INPUT_DIRPATH]
         self.have_gt = True if gt_glob else False
 
         console.log(f'GT Directory path: [yellow]{gt_glob}[/yellow]')

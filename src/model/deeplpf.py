@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-'''
-This is a PyTorch implementation of the CVPR 2020 paper:
-"Deep Local Parametric Filters for Image Enhancement": https://arxiv.org/abs/2003.13985
-
-Please cite the paper if you use this code
-
-Tested with Pytorch 0.3.1, Python 3.5
-
-Authors: Sean Moran (sean.j.moran@gmail.com), 
-         Pierre Marza (pierre.marza@gmail.com)
-
-'''
 import math
 import os
 import os.path as osp
@@ -33,6 +20,9 @@ class DeepLpfLitModel(pl.core.LightningModule):
     def __init__(self, opt):
         super().__init__()
         self.save_hyperparameters(opt)
+
+        if opt[VALID_DATA]:
+            console.log('[yellow]WARNING: valid mode is not supported in DeepLPF, ignore valid_dataloader.[/yellow]')
 
         self.net = DeepLPFNet(opt)
         self.losses = {
@@ -65,7 +55,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
     def configure_optimizers(self):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters(
-        )), lr=1e-4, betas=(0.9, 0.999), eps=1e-08)
+        )), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
         return optimizer
 
     def log_img(self, output, img_dirpath, name, fname):
@@ -414,7 +404,7 @@ class BinaryLayer(nn.Module):
 
 class CubicFilter(nn.Module):
 
-    def __init__(self, num_in_channels=64, num_out_channels=64, batch_size=1):
+    def __init__(self, num_in_channels=64, num_out_channels=64):
         """Initialisation function
 
         :param block: a block (layer) of the neural network
@@ -1098,12 +1088,11 @@ class GlobalPoolingBlock(Block, nn.Module):
 
 class DeepLPFParameterPrediction(nn.Module):
 
-    def __init__(self, opt, num_in_channels=64, num_out_channels=64, batch_size=1):
+    def __init__(self, opt, num_in_channels=64, num_out_channels=64):
         """Initialisation function
 
         :param num_in_channels:  Number of input feature maps
         :param num_out_channels: Number of output feature maps
-        :param batch_size: Size of image batch
         :returns: N/A
         :rtype: N/A
 

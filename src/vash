@@ -6,9 +6,12 @@ import prompt_toolkit
 import yaml
 from globalenv import *
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import FuzzyWordCompleter, Completer, Completion
+from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
+
+# from pygments.lexers.shell import BashLexer as Lexer
+# from prompt_toolkit.lexers import PygmentsLexer
 
 if len(sys.argv) != 2:
     print('Usage: ./vash <mode>')
@@ -196,18 +199,17 @@ def get_field_words(field):
 
 
 def complete_cmd():
+    print('* Initializing vash...')
     total_args = []
     for field in [DATA, RUNTIME, AUGMENTATION]:
         total_args.extend(get_field_words(field))
 
-    args_completer = FuzzyWordCompleter(total_args)
-    # print(total_args)
-
     conf = yaml.load(open(CONFIG_FILEPATH, 'r').read(), Loader=yaml.FullLoader)
     completer = VashCompleter(conf)
+    print('* Initializing VashCompleter...')
 
     args = prompt_toolkit.prompt(
-        f'➜ Enter hydra arguments:\n➜ python {mode}.py ',
+        f'\n➜ Enter hydra arguments:\n➜ python {mode}.py ',
         completer=completer,
         complete_while_typing=True,
         bottom_toolbar=bottom_toolbar,
@@ -215,14 +217,6 @@ def complete_cmd():
         auto_suggest=AutoSuggestFromHistory(),
         complete_in_thread=True,
     )
-    args = ' '.join(args.split()) + ' '
-    # TODO: 在得到args后，为每一个参数包裹双引号
-    # def repl(s):
-    #     return ''.join(["'" + x.strip() + "'" for x in s.groups()])
-    # args = re.sub('.*?=.*? ', repl, args)
-    # for x in re.findall(r'', args):
-    #     args = args.replace(x, f"'{x}'")
-
     cmd = f'python {mode}.py {args}'
     console.log(f'Start executing command:\n>>> {cmd}')
     os.system(cmd)

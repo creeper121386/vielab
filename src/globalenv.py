@@ -33,6 +33,7 @@ OUTPUT_IMG = 'output_img'
 NAME = 'name'
 
 # config.yml
+DEBUG = 'debug'
 CHECKPOINT_PATH = 'checkpoint_path'
 LOG_DIRPATH = 'log_dirpath'
 IMG_DIRPATH = 'img_dirpath'
@@ -46,9 +47,12 @@ LOG_EVERY = 'log_every'
 EXPNAME = 'name'
 LOSS = 'loss'
 DATA = 'ds'
+VALID_DATA = 'valid_ds'
 GPU = 'gpu'
 RUNTIME = 'runtime'
 MODELNAME = 'modelname'
+BATCHSIZE = 'batchsize'
+LR = 'lr'
 
 # config.loss
 LTV_LOSS = 'ltv'
@@ -68,12 +72,25 @@ CROP = 'crop'
 
 # config.runtime.modelname
 DEEP_LPF = 'deeplpf'
+IA3DLUT = '3dlut'
 
 # config.runtime.deeplpf.*
 PREDICT_ILLUMINATION = 'predict_illumination'
 FILTERS = 'filters'
 USE_GRADUATED_FILTER = 'g'
 USE_ELLIPTICAL_FILTER = 'e'
+
+# config.runtime.3dlut.*
+MODE = 'mode'
+COLOR_SPACE = 'color_space'
+BETA1 = 'beta1'
+BETA2 = 'beta2'
+LAMBDA_SMOOTH = 'lambda_smooth'
+LAMBDA_MONOTONICITY = 'lambda_monotonicity'
+MSE = 'mse'
+TV_CONS = 'tv_cons'
+MN_CONS = 'mv_cons'
+WEIGHTS_NORM = 'wnorm'
 
 # running mode
 TRAIN = 'train'
@@ -85,7 +102,8 @@ IMAGES = 'images'
 
 # models name
 SUPPORTED_MODELS = [
-    DEEP_LPF
+    DEEP_LPF,
+    IA3DLUT
 ]
 
 # required arguments in any condition:
@@ -113,7 +131,21 @@ TEST_NECESSARY_ARGUMENTS = [
 # extra required arguments for each model:
 RUNTIME_NECESSARY_ARGUMENTS = {
     DEEP_LPF: [
+        MODELNAME,
+        PREDICT_ILLUMINATION,
+        LOSS,
+        FILTERS
     ],
+
+    IA3DLUT: [
+        MODELNAME,
+        MODE,
+        COLOR_SPACE,
+        BETA1,
+        BETA2,
+        LAMBDA_SMOOTH,
+        LAMBDA_MONOTONICITY
+    ]
 }
 
 #############################################

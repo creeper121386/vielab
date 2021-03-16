@@ -1,8 +1,11 @@
 # Models-mapping
-from .deeplpf import DeepLPFNet
+from globalenv import *
+
+from .deeplpf import DeepLpfLitModel
+from .ia3dlut import IA3DLUTLitModel
 
 # from .ia3dlut import
 MODEL_ZOO = {
-    'deeplpf': DeepLPFNet,
-    '3dlut': None
+    DEEP_LPF: DeepLpfLitModel,
+    IA3DLUT: IA3DLUTLitModel,
 }

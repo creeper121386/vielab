@@ -17,6 +17,9 @@ if torch.cuda.is_available():
         })
 else:
     print('NO CUDA is found. Fall back to CPU.')
+
+    # here compling the module as `trilinear`
+    # just use `import trilinear` in source code.
     setup(name='trilinear',
           ext_modules=[CppExtension('trilinear', ['src/trilinear.cpp'])],
           cmdclass={'build_ext': BuildExtension})
