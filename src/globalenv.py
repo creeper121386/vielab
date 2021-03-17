@@ -91,20 +91,15 @@ MSE = 'mse'
 TV_CONS = 'tv_cons'
 MN_CONS = 'mv_cons'
 WEIGHTS_NORM = 'wnorm'
+LUT_FILEPATH = 'lut_filepath'
 
 # running mode
 TRAIN = 'train'
 TEST = 'test'
-EVAL = 'eval'
+VALID = 'valid'
 
 # file / dir name
 IMAGES = 'images'
-
-# models name
-SUPPORTED_MODELS = [
-    DEEP_LPF,
-    IA3DLUT
-]
 
 # required arguments in any condition:
 GENERAL_NECESSARY_ARGUMENTS = [
@@ -127,26 +122,6 @@ TRAIN_NECESSARY_ARGUMENTS = [
 TEST_NECESSARY_ARGUMENTS = [
     CHECKPOINT_PATH,
 ]
-
-# extra required arguments for each model:
-RUNTIME_NECESSARY_ARGUMENTS = {
-    DEEP_LPF: [
-        MODELNAME,
-        PREDICT_ILLUMINATION,
-        LOSS,
-        FILTERS
-    ],
-
-    IA3DLUT: [
-        MODELNAME,
-        MODE,
-        COLOR_SPACE,
-        BETA1,
-        BETA2,
-        LAMBDA_SMOOTH,
-        LAMBDA_MONOTONICITY
-    ]
-}
 
 #############################################
 #### The following part CAN NOT be edited ###

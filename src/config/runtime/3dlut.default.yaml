@@ -7,4 +7,4 @@ beta1: 0.9      # for adam optimizer
 beta2: 0.999    # for adam optimizer
 lambda_smooth: 0.0001
 lambda_monotonicity: 10.0
-
+lut_filepath: ../files/IdentityLUT33.txt

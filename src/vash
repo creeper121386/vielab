@@ -30,6 +30,7 @@ class VashCompleter(Completer):
         self.args_values = {x: get_field_words(x) for x in self.groups}
         self.args_names.extend(self.groups)
         self.illegal_characters = ('+', ' ', '=')
+        self.path_args = [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}', f'{RUNTIME}.{LUT_FILEPATH}']
 
     def get_path(self, text):
         self.get_paths = lambda: ["."]
@@ -129,7 +130,7 @@ class VashCompleter(Completer):
                 # complete a multi-level dict node value:
                 # for x in args_values[arg]:
                 #     yield Completion(x, start_position=position)
-                if arg in [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}']:
+                if arg in self.path_args:
                     # complete value for ds.GT, ds.input
                     for x in self.get_path(last_word.split('=')[-1]):
                         yield Completion(x, start_position=0)

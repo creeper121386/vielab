@@ -1,4 +1,5 @@
 import itertools
+import os.path as osp
 
 import numpy as np
 import pytorch_lightning as pl
@@ -8,29 +9,38 @@ import torchvision.models as models
 import trilinear
 from globalenv import *
 from torch.autograd import Variable
+from util import saveTensorAsImg, ImageProcessing
 
 
 class IA3DLUTLitModel(pl.core.LightningModule):
     def __init__(self, opt):
         super().__init__()
         self.save_hyperparameters(opt)
-        self.luts = [Generator3DLUT_identity(), Generator3DLUT_zero(), Generator3DLUT_zero()]
+        self.luts = [Generator3DLUT_identity(opt), Generator3DLUT_zero(), Generator3DLUT_zero()]
         self.cnn = Classifier()
         self.tv3 = TV_3D()
         self.trilinear = TrilinearInterpolation()
+
+        self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
+        self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
 
         self.iternum = 0
         self.epoch = 0
         self.opt = opt
         self.criterion = torch.nn.MSELoss()
 
-        self.metrics = {
+        self.train_metrics = {
             # PSNR: 0,
-            MSE: 0,
+            MSE: 0,  # mse loss
             TV_CONS: 0,
             MN_CONS: 0,
+            WEIGHTS_NORM: 0,  # L2 norm of output of cnn.
+            LOSS: 0  # training loss
+        }
+
+        self.valid_metrics = {
+            PSNR: 0,
             WEIGHTS_NORM: 0,
-            LOSS: 0
         }
 
     def get_progress_bar_dict(self):
@@ -44,101 +54,144 @@ class IA3DLUTLitModel(pl.core.LightningModule):
             itertools.chain(self.cnn.parameters(), self.cnn.parameters(), self.cnn.parameters(), self.cnn.parameters()),
             lr=self.opt[LR], betas=(self.opt[RUNTIME][BETA1], self.opt[RUNTIME][BETA2]), eps=1e-08)
 
-    def log_img(self, output, img_dirpath, name, fname):
+    def log_img(self, output, img_dirpath, logname, fname):
         imgpath = osp.join(img_dirpath, fname)
         img = saveTensorAsImg(output, imgpath)
-        self.logger.experiment.log_image(img, overwrite=False, name=name)
+        self.logger.experiment.log_image(img, overwrite=False, name=logname)
 
-    def generator_train(self, img):
-        pred = self.cnn(img).squeeze()
-        if len(pred.shape) == 1:
-            pred = pred.unsqueeze(0)
+    def train_forward_one_batch(self, batch):
+        '''
+        input shape: [b, 3, H, W]
+        self.cnn(img) shape: [b, 3, 1, 1]
+        '''
 
-        gen_A = [lut(img) for lut in self.luts]
-        weights_norm = torch.mean(pred ** 2)
-        combine_A = img.new(img.size())
+        # pred: weights of each LUT
+        pred_weights = self.cnn(batch).squeeze()
+        if len(pred_weights.shape) == 1:
+            # when batchsize is 1:
+            pred_weights = pred_weights.unsqueeze(0)
 
-        for b in range(img.size(0)):
-            # num of LUT must be 3!
-            combine_A[b, :, :, :] = pred[b, 0] * gen_A[0][b, :, :, :] + pred[b, 1] * gen_A[1][b, :, :, :] + pred[b, 2] * \
-                                    gen_A[2][b, :, :, :]  # + pred[b,3] * gen_A3[b,:,:,:] + pred[b,4] * gen_A4[b,:,:,:]
+        lut_outputs = [lut(batch) for lut in self.luts]
+        weights_norm = torch.mean(pred_weights ** 2)
+        combine_A = batch.new(batch.size())
+
+        for b in range(batch.size(0)):
+            # for each image in the batch, merge all LUT's outputs with weights
+            combine_A[b, :, :, :] = sum([
+                pred_weights[b, i] * lut_outputs[i][b, :, :, :]
+                for i in range(lut_outputs)
+            ])
 
         return combine_A, weights_norm
 
-    def generator_eval(self, img):
-        pred = self.cnn(img).squeeze()
-        LUT = pred[0] * self.luts[0].LUT + pred[1] * self.luts[1].LUT + pred[2] * self.luts[
-            2].LUT  # + pred[3] * LUT3.LUT + pred[4] * LUT4.LUT
-        weights_norm = torch.mean(pred ** 2)
+    def eval_forward_one_img(self, img):
+        '''
+        input img shape: [1, 3, H, W]
+        '''
+        if len(img.shape) != 4:
+            if len(img.shape) == 3:
+                img = img.unsqueeze(0)
+            else:
+                raise RuntimeWarning(
+                    f'WARN: In IA3DLUTLitModel.eval_forward_one_img: input image shape must be [1, 3, H, W], but img.shape={img.shape}')
+
+        pred_weights = self.cnn(img).squeeze()
+        final_LUT = sum([
+            weight * self.luts[i].LUT
+            for i, weight in enumerate(pred_weights)
+        ])
+
+        weights_norm = torch.mean(pred_weights ** 2)
         combine_A = img.new(img.size())
-        _, combine_A = trilinear_(LUT, img)
+        _, combine_A = trilinear_(final_LUT, img)
         return combine_A, weights_norm
 
     def training_step(self, batch, batch_idx):
+        # get output
         input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
                                 Variable(batch[OUTPUT_IMG],
                                          requires_grad=False)
-        output_batch, self.metrics[WEIGHTS_NORM] = self.generator_train(input_batch)
+        output_batch, self.train_metrics[WEIGHTS_NORM] = self.train_forward_one_batch(input_batch)
 
         # calculate loss:
         mse = self.criterion(output_batch, gt_batch)
         tv_mn_pairs = [self.tv3(x) for x in self.luts]
-        self.metrics[TV_CONS] = sum([x[0] for x in tv_mn_pairs])
-        self.metrics[MN_CONS] = sum([x[1] for x in tv_mn_pairs])
-
+        self.train_metrics[TV_CONS] = sum([x[0] for x in tv_mn_pairs])
+        self.train_metrics[MN_CONS] = sum([x[1] for x in tv_mn_pairs])
         loss = (mse +
-                self.opt[RUNTIME][LAMBDA_SMOOTH] * (self.metrics[WEIGHTS_NORM] +
-                                                    self.metrics[TV_CONS]) +
-                self.opt[RUNTIME][LAMBDA_MONOTONICITY] * self.metrics[MN_CONS])
+                self.opt[RUNTIME][LAMBDA_SMOOTH] * (self.train_metrics[WEIGHTS_NORM] +
+                                                    self.train_metrics[TV_CONS]) +
+                self.opt[RUNTIME][LAMBDA_MONOTONICITY] * self.train_metrics[MN_CONS])
 
-        self.metrics[PSNR] = 10 * math.log10(1 / mse.item())
-        for x, y in self.metrics.items():
-            self.log(x, y, on_step=False, on_epoch=True, prog_bar=True)
+        # get psnr
+        self.train_metrics[PSNR] = ImageProcessing.compute_psnr(output_batch, gt_batch, 1.0)
+
+        # log to pl
+        for x, y in self.train_metrics.items():
+            self.log(x, y)  # , on_step=False, on_epoch=True, prog_bar=True)
 
         # log to comet
-        self.logger.experiment.log_metrics(self.metrics)
+        self.logger.experiment.log_metrics(self.train_metrics)
 
         # save images
         if batch_idx % self.opt[LOG_EVERY] == 0:
             fname = f'epoch{self.epoch}_iter{batch_idx}.png'
-            self.log_img(output_batch, self.opt[IMG_DIRPATH], OUTPUT_IMG, fname)
+            self.log_img(output_batch, self.train_img_dirpath, OUTPUT_IMG, fname)
         return loss
 
     def validation_step(self, batch, batch_ix):
-        # TODO 增加对valid data的支持
-        pass
+        # get output
+        input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
+                                Variable(batch[OUTPUT_IMG],
+                                         requires_grad=False)
+        output_batch, self.valid_metrics[WEIGHTS_NORM] = generator_eval(real_A)
+
+        # save valid images
+        if batch_idx % self.opt[LOG_EVERY] == 0:
+            fname = f'epoch{self.epoch}_iter{batch_idx}.png'
+            self.log_img(output_batch, self.valid_img_dirpath, OUTPUT_IMG, fname)
+
+        # get psnr
+        self.valid_metrics[PSNR] = ImageProcessing.compute_psnr(output_batch, gt_batch, 1.0)
+
+        # log to pl and comet
+        logged_metrics = {f'{VALID}.{x}': y for x in self.valid_metrics}
+        self.logger.experiment.log_metrics(self.logged_metrics)
+        for x, y in logged_metrics.items():
+            self.log(x, y)
 
     def training_epoch_end(self, outputs):
         self.epoch += 1
 
     def test_step(self, batch, batch_ix):
         # TODO 修改这里 这里现在还是从deeplpf复制过来的
-        # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], batch[NAME]
-        output_dict = self.net(input_batch)
-        output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
-
-        # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
-        fname = fname[0]
-        saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
-        if PREDICT_ILLUMINATION in output_dict:
-            saveTensorAsImg(
-                output_dict[PREDICT_ILLUMINATION],
-                os.path.join(self.illumination_dirpath, osp.basename(fname))
-            )
-
-        # test with GT:
-        if OUTPUT_IMG in batch:
-            # calculate metrics:
-            output_ = output.clone().detach().cpu().numpy()
-            y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
-            psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
-            ssim = ImageProcessing.compute_ssim(output_, y_)
-            for x, y in {PSNR: psnr, SSIM: ssim}.items():
-                self.log(x, y, on_step=True, on_epoch=True)
+        pass
+        # # test without GT image:
+        # input_batch, fname = batch[INPUT_IMG], batch[NAME]
+        # output_dict = self.net(input_batch)
+        # output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
+        #
+        # # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
+        # fname = fname[0]
+        # saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+        # if PREDICT_ILLUMINATION in output_dict:
+        #     saveTensorAsImg(
+        #         output_dict[PREDICT_ILLUMINATION],
+        #         os.path.join(self.illumination_dirpath, osp.basename(fname))
+        #     )
+        #
+        # # test with GT:
+        # if OUTPUT_IMG in batch:
+        #     # calculate metrics:
+        #     output_ = output.clone().detach().cpu().numpy()
+        #     y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
+        #     psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
+        #     ssim = ImageProcessing.compute_ssim(output_, y_)
+        #     for x, y in {PSNR: psnr, SSIM: ssim}.items():
+        #         self.log(x, y, on_step=True, on_epoch=True)
 
     def forward(self, x):
-        return self.net(x)
+        return self.eval_forward_one_img(x)
 
 
 def weights_init_normal_classifier(m):
@@ -259,14 +312,9 @@ class Classifier_unpaired(nn.Module):
 
 
 class Generator3DLUT_identity(nn.Module):
-    def __init__(self, dim=33):
+    def __init__(self, opt, dim=33):
         super(Generator3DLUT_identity, self).__init__()
-        if dim == 33:
-            # TODO 把这文件下载下来
-            file = open("IdentityLUT33.txt", 'r')
-        elif dim == 64:
-            file = open("IdentityLUT64.txt", 'r')
-        lines = file.readlines()
+        lines = open(opt[RUNTIME][LUT_FILEPATH], 'r').readlines()
         buffer = np.zeros((3, dim, dim, dim), dtype=np.float32)
 
         for i in range(0, dim):
@@ -281,7 +329,6 @@ class Generator3DLUT_identity(nn.Module):
         self.TrilinearInterpolation = TrilinearInterpolation()
 
     def forward(self, x):
-
         _, output = self.TrilinearInterpolation(self.LUT, x)
         # self.LUT, output = self.TrilinearInterpolation(self.LUT, x)
         return output
@@ -313,8 +360,6 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
         W = x.size(2)
         H = x.size(3)
         batch = x.size(0)
-
-        # import pdb; pdb.set_trace()
 
         assert 1 == trilinear.forward(lut,
                                       x,

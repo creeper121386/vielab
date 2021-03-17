@@ -21,8 +21,8 @@ import numpy as np
 import omegaconf
 import torch
 import yaml
-from globalenv import *
 from matplotlib.image import imread
+from model.model_zoo import *
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
@@ -207,6 +207,7 @@ def configLogging(mode, opt):
 
 
 def saveTensorAsImg(output, path, resize=False):
+    # save the first image of a batch
     outImg = output[0].permute(
         1, 2, 0).clone().detach().cpu().numpy() * 255.0
     outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
@@ -236,7 +237,7 @@ def checkConfig(opt, mode):
     # check necessary argments for all models for EACH MODE:
     if mode == TRAIN:
         necessaryFields = TRAIN_NECESSARY_ARGUMENTS
-    elif mode in [TEST, EVAL]:
+    elif mode in [TEST, VALID]:
         necessaryFields = TEST_NECESSARY_ARGUMENTS
     else:
         raise NotImplementedError('ERR: In function [checkConfig]: unknown mode', mode)
@@ -244,7 +245,7 @@ def checkConfig(opt, mode):
         checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
 
     # check necessary arguments for EACH MODEL:
-    assert opt[RUNTIME][MODELNAME] in SUPPORTED_MODELS
+    assert opt[RUNTIME][MODELNAME] in MODEL_ZOO
     for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
         checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
 
@@ -403,7 +404,8 @@ class ImageProcessing(object):
 
     @staticmethod
     def compute_psnr(image_batchA, image_batchB, max_intensity):
-        """Computes the PSNR for a batch of input and output images
+        """Computes the average PSNR for a batch of input and output images
+        could be used during training / validation
 
         :param image_batchA: numpy nd-array representing the image batch A of shape Bx3xWxH
         :param image_batchB: numpy nd-array representing the image batch A of shape Bx3xWxH
