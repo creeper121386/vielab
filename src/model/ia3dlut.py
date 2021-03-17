@@ -5,21 +5,30 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import torchvision.models as models
+import torch.optim as optim
 import trilinear
+import util
 from globalenv import *
 from torch.autograd import Variable
-from util import saveTensorAsImg, ImageProcessing
 
 
 class IA3DLUTLitModel(pl.core.LightningModule):
     def __init__(self, opt):
         super().__init__()
         self.save_hyperparameters(opt)
-        self.luts = [Generator3DLUT_identity(opt), Generator3DLUT_zero(), Generator3DLUT_zero()]
+        self.luts = torch.nn.ModuleList([
+            Generator3DLUT_identity(opt),
+            Generator3DLUT_zero(),
+            Generator3DLUT_zero()
+        ])
         self.cnn = Classifier()
         self.tv3 = TV_3D()
         self.trilinear = TrilinearInterpolation()
+
+        console.log('Running initialization for IA3DLUTLitModel')
+        if not opt[CHECKPOINT_PATH]:
+            self.cnn.apply(weights_init_normal_classifier)
+            torch.nn.init.constant_(self.cnn.model[16].bias.data, 1.0)
 
         self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
         self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
@@ -50,13 +59,14 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         return items
 
     def configure_optimizers(self):
+
         return optim.Adam(
-            itertools.chain(self.cnn.parameters(), self.cnn.parameters(), self.cnn.parameters(), self.cnn.parameters()),
+            itertools.chain(self.cnn.parameters(), *[x.parameters() for x in self.luts]),
             lr=self.opt[LR], betas=(self.opt[RUNTIME][BETA1], self.opt[RUNTIME][BETA2]), eps=1e-08)
 
     def log_img(self, output, img_dirpath, logname, fname):
         imgpath = osp.join(img_dirpath, fname)
-        img = saveTensorAsImg(output, imgpath)
+        img = util.saveTensorAsImg(output, imgpath)
         self.logger.experiment.log_image(img, overwrite=False, name=logname)
 
     def train_forward_one_batch(self, batch):
@@ -66,6 +76,8 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         '''
 
         # pred: weights of each LUT
+        for x in self.luts:
+            x.to_device(batch.device)
         pred_weights = self.cnn(batch).squeeze()
         if len(pred_weights.shape) == 1:
             # when batchsize is 1:
@@ -79,7 +91,7 @@ class IA3DLUTLitModel(pl.core.LightningModule):
             # for each image in the batch, merge all LUT's outputs with weights
             combine_A[b, :, :, :] = sum([
                 pred_weights[b, i] * lut_outputs[i][b, :, :, :]
-                for i in range(lut_outputs)
+                for i in range(len(lut_outputs))
             ])
 
         return combine_A, weights_norm
@@ -88,29 +100,36 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         '''
         input img shape: [1, 3, H, W]
         '''
+        for x in self.luts:
+            x.to_device(img.device)
+
         if len(img.shape) != 4:
             if len(img.shape) == 3:
                 img = img.unsqueeze(0)
             else:
                 raise RuntimeWarning(
                     f'WARN: In IA3DLUTLitModel.eval_forward_one_img: input image shape must be [1, 3, H, W], but img.shape={img.shape}')
+        elif img.shape[1] != 1:
+            img = img[0].unsqueeze(0)
 
         pred_weights = self.cnn(img).squeeze()
+        # import ipdb; ipdb.set_trace()
+
+        # lut device: cpu
         final_LUT = sum([
-            weight * self.luts[i].LUT
+            weight * self.luts[i].LUT.type_as(weight)
             for i, weight in enumerate(pred_weights)
         ])
 
         weights_norm = torch.mean(pred_weights ** 2)
         combine_A = img.new(img.size())
-        _, combine_A = trilinear_(final_LUT, img)
+        _, combine_A = self.trilinear(final_LUT, img)
         return combine_A, weights_norm
 
     def training_step(self, batch, batch_idx):
         # get output
         input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                Variable(batch[OUTPUT_IMG],
-                                         requires_grad=False)
+                                Variable(batch[OUTPUT_IMG], requires_grad=False)
         output_batch, self.train_metrics[WEIGHTS_NORM] = self.train_forward_one_batch(input_batch)
 
         # calculate loss:
@@ -118,13 +137,19 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         tv_mn_pairs = [self.tv3(x) for x in self.luts]
         self.train_metrics[TV_CONS] = sum([x[0] for x in tv_mn_pairs])
         self.train_metrics[MN_CONS] = sum([x[1] for x in tv_mn_pairs])
+
+        # TODO: 多卡训练这里也有问题：
         loss = (mse +
-                self.opt[RUNTIME][LAMBDA_SMOOTH] * (self.train_metrics[WEIGHTS_NORM] +
-                                                    self.train_metrics[TV_CONS]) +
+                self.opt[RUNTIME][LAMBDA_SMOOTH] * (self.train_metrics[WEIGHTS_NORM] + self.train_metrics[TV_CONS]) +
                 self.opt[RUNTIME][LAMBDA_MONOTONICITY] * self.train_metrics[MN_CONS])
 
         # get psnr
-        self.train_metrics[PSNR] = ImageProcessing.compute_psnr(output_batch, gt_batch, 1.0)
+        # import ipdb;
+        # ipdb.set_trace()
+        self.train_metrics[PSNR] = util.ImageProcessing.compute_psnr(
+            util.cuda_tensor_to_ndarray(output_batch),
+            util.cuda_tensor_to_ndarray(gt_batch), 1.0
+        )
 
         # log to pl
         for x, y in self.train_metrics.items():
@@ -139,12 +164,13 @@ class IA3DLUTLitModel(pl.core.LightningModule):
             self.log_img(output_batch, self.train_img_dirpath, OUTPUT_IMG, fname)
         return loss
 
-    def validation_step(self, batch, batch_ix):
+    def validation_step(self, batch, batch_idx):
+        # TODO 检查 train 和 valid 的功能正确性
         # get output
         input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
                                 Variable(batch[OUTPUT_IMG],
                                          requires_grad=False)
-        output_batch, self.valid_metrics[WEIGHTS_NORM] = generator_eval(real_A)
+        output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
 
         # save valid images
         if batch_idx % self.opt[LOG_EVERY] == 0:
@@ -152,11 +178,14 @@ class IA3DLUTLitModel(pl.core.LightningModule):
             self.log_img(output_batch, self.valid_img_dirpath, OUTPUT_IMG, fname)
 
         # get psnr
-        self.valid_metrics[PSNR] = ImageProcessing.compute_psnr(output_batch, gt_batch, 1.0)
+        self.valid_metrics[PSNR] = util.ImageProcessing.compute_psnr(
+            util.cuda_tensor_to_ndarray(output_batch),
+            util.cuda_tensor_to_ndarray(gt_batch), 1.0
+        )
 
         # log to pl and comet
-        logged_metrics = {f'{VALID}.{x}': y for x in self.valid_metrics}
-        self.logger.experiment.log_metrics(self.logged_metrics)
+        logged_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
+        self.logger.experiment.log_metrics(logged_metrics)
         for x, y in logged_metrics.items():
             self.log(x, y)
 
@@ -173,9 +202,9 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         #
         # # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
         # fname = fname[0]
-        # saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+        # util.saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
         # if PREDICT_ILLUMINATION in output_dict:
-        #     saveTensorAsImg(
+        #     util.saveTensorAsImg(
         #         output_dict[PREDICT_ILLUMINATION],
         #         os.path.join(self.illumination_dirpath, osp.basename(fname))
         #     )
@@ -185,8 +214,8 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         #     # calculate metrics:
         #     output_ = output.clone().detach().cpu().numpy()
         #     y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
-        #     psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
-        #     ssim = ImageProcessing.compute_ssim(output_, y_)
+        #     psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
+        #     ssim = util.ImageProcessing.compute_ssim(output_, y_)
         #     for x, y in {PSNR: psnr, SSIM: ssim}.items():
         #         self.log(x, y, on_step=True, on_epoch=True)
 
@@ -204,38 +233,39 @@ def weights_init_normal_classifier(m):
         torch.nn.init.constant_(m.bias.data, 0.0)
 
 
-class resnet18_224(nn.Module):
-
-    def __init__(self, out_dim=5, aug_test=False):
-        super(resnet18_224, self).__init__()
-
-        self.aug_test = aug_test
-        net = models.resnet18(pretrained=True)
-        # self.mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).cuda()
-        # self.std = torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).cuda()
-
-        self.upsample = nn.Upsample(size=(224, 224), mode='bilinear', align_corners=True)
-
-        net.fc = nn.Linear(512, out_dim)
-        self.model = net
-
-    def forward(self, x):
-        x = self.upsample(x)
-        # x = torch._C._nn.upsample_bilinear2d( x, (224,224), align_corners=False )
-
-        if self.aug_test:
-            # x = torch.cat((x, torch.rot90(x, 1, [2, 3]), torch.rot90(x, 3, [2, 3])), 0)
-            x = torch.cat((x, torch.flip(x, [3])), 0)
-        f = self.model(x)
-
-        return f
+#
+# class resnet18_224(nn.Module):
+#
+#     def __init__(self, out_dim=5, aug_test=False):
+#         super(resnet18_224, self).__init__()
+#
+#         self.aug_test = aug_test
+#         net = models.resnet18(pretrained=True)
+#         # self.mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).cuda()
+#         # self.std = torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).cuda()
+#
+#         self.upsample = nn.Upsample(size=(224, 224), mode='bilinear', align_corners=True)
+#
+#         net.fc = nn.Linear(512, out_dim)
+#         self.model = net
+#
+#     def forward(self, x):
+#         x = self.upsample(x)
+#         # x = torch._C._nn.upsample_bilinear2d( x, (224,224), align_corners=False )
+#
+#         if self.aug_test:
+#             # x = torch.cat((x, torch.rot90(x, 1, [2, 3]), torch.rot90(x, 3, [2, 3])), 0)
+#             x = torch.cat((x, torch.flip(x, [3])), 0)
+#         f = self.model(x)
+#
+#         return f
 
 
 ##############################
 #        Discriminator
 ##############################
 
-
+#
 def discriminator_block(in_filters, out_filters, normalization=False):
     """Returns downsampling layers of each discriminator block"""
     layers = [nn.Conv2d(in_filters, out_filters, 3, stride=2, padding=1)]
@@ -247,25 +277,27 @@ def discriminator_block(in_filters, out_filters, normalization=False):
     return layers
 
 
-class Discriminator(nn.Module):
-    def __init__(self, in_channels=3):
-        super(Discriminator, self).__init__()
-
-        self.model = nn.Sequential(
-            nn.Upsample(size=(256, 256), mode='bilinear', align_corners=True),
-            nn.Conv2d(3, 16, 3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.InstanceNorm2d(16, affine=True),
-            *discriminator_block(16, 32),
-            *discriminator_block(32, 64),
-            *discriminator_block(64, 128),
-            *discriminator_block(128, 128),
-            # *discriminator_block(128, 128),
-            nn.Conv2d(128, 1, 8, padding=0)
-        )
-
-    def forward(self, img_input):
-        return self.model(img_input)
+#
+#
+# class Discriminator(nn.Module):
+#     def __init__(self, in_channels=3):
+#         super(Discriminator, self).__init__()
+#
+#         self.model = nn.Sequential(
+#             nn.Upsample(size=(256, 256), mode='bilinear', align_corners=True),
+#             nn.Conv2d(3, 16, 3, stride=2, padding=1),
+#             nn.LeakyReLU(0.2),
+#             nn.InstanceNorm2d(16, affine=True),
+#             *discriminator_block(16, 32),
+#             *discriminator_block(32, 64),
+#             *discriminator_block(64, 128),
+#             *discriminator_block(128, 128),
+#             # *discriminator_block(128, 128),
+#             nn.Conv2d(128, 1, 8, padding=0)
+#         )
+#
+#     def forward(self, img_input):
+#         return self.model(img_input)
 
 
 class Classifier(nn.Module):
@@ -290,25 +322,27 @@ class Classifier(nn.Module):
         return self.model(img_input)
 
 
-class Classifier_unpaired(nn.Module):
-    def __init__(self, in_channels=3):
-        super(Classifier_unpaired, self).__init__()
-
-        self.model = nn.Sequential(
-            nn.Upsample(size=(256, 256), mode='bilinear', align_corners=True),
-            nn.Conv2d(3, 16, 3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.InstanceNorm2d(16, affine=True),
-            *discriminator_block(16, 32),
-            *discriminator_block(32, 64),
-            *discriminator_block(64, 128),
-            *discriminator_block(128, 128),
-            # *discriminator_block(128, 128),
-            nn.Conv2d(128, 3, 8, padding=0),
-        )
-
-    def forward(self, img_input):
-        return self.model(img_input)
+#
+#
+# class Classifier_unpaired(nn.Module):
+#     def __init__(self, in_channels=3):
+#         super(Classifier_unpaired, self).__init__()
+#
+#         self.model = nn.Sequential(
+#             nn.Upsample(size=(256, 256), mode='bilinear', align_corners=True),
+#             nn.Conv2d(3, 16, 3, stride=2, padding=1),
+#             nn.LeakyReLU(0.2),
+#             nn.InstanceNorm2d(16, affine=True),
+#             *discriminator_block(16, 32),
+#             *discriminator_block(32, 64),
+#             *discriminator_block(64, 128),
+#             *discriminator_block(128, 128),
+#             # *discriminator_block(128, 128),
+#             nn.Conv2d(128, 3, 8, padding=0),
+#         )
+#
+#     def forward(self, img_input):
+#         return self.model(img_input)
 
 
 class Generator3DLUT_identity(nn.Module):
@@ -328,6 +362,10 @@ class Generator3DLUT_identity(nn.Module):
         self.LUT = nn.Parameter(torch.from_numpy(buffer).requires_grad_(True))
         self.TrilinearInterpolation = TrilinearInterpolation()
 
+    def to_device(self, device):
+        if self.LUT.device != device:
+            self.LUT.to(device)
+
     def forward(self, x):
         _, output = self.TrilinearInterpolation(self.LUT, x)
         # self.LUT, output = self.TrilinearInterpolation(self.LUT, x)
@@ -344,14 +382,18 @@ class Generator3DLUT_zero(nn.Module):
 
     def forward(self, x):
         _, output = self.TrilinearInterpolation(self.LUT, x)
-
         return output
+
+    def to_device(self, device):
+        if self.LUT.device != device:
+            self.LUT.to(device)
 
 
 class TrilinearInterpolationFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, lut, x):
         x = x.contiguous()
+        lut = lut.type_as(x)
 
         output = x.new(x.size())
         dim = lut.size()[-1]
@@ -371,8 +413,10 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
                                       H,
                                       batch)
 
-        int_package = torch.IntTensor([dim, shift, W, H, batch])
-        float_package = torch.FloatTensor([binsize])
+        # console.log(x)
+        # import ipdb; ipdb.set_trace()
+        int_package = torch.IntTensor([dim, shift, W, H, batch]).type_as(x)
+        float_package = torch.FloatTensor([binsize]).type_as(x)
         variables = [lut, x, int_package, float_package]
 
         ctx.save_for_backward(*variables)
@@ -381,6 +425,7 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, lut_grad, x_grad):
+        # import ipdb; ipdb.set_trace()
         lut, x, int_package, float_package = ctx.saved_variables
         dim, shift, W, H, batch = int_package
         dim, shift, W, H, batch = int(dim), int(shift), int(W), int(H), int(batch)
@@ -395,6 +440,9 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
                                        W,
                                        H,
                                        batch)
+
+        # so strange here !!!!!!!!!!
+        # lut_grad = lut_grad.cpu()
         return lut_grad, x_grad
 
 
@@ -404,7 +452,6 @@ class TrilinearInterpolation(torch.nn.Module):
         super(TrilinearInterpolation, self).__init__()
 
     def forward(self, lut, x):
-        # import pdb; pdb.set_trace()
         return TrilinearInterpolationFunction.apply(lut, x)
 
 
@@ -424,18 +471,14 @@ class TV_3D(nn.Module):
         dif_r = LUT.LUT[:, :, :, :-1] - LUT.LUT[:, :, :, 1:]
         dif_g = LUT.LUT[:, :, :-1, :] - LUT.LUT[:, :, 1:, :]
         dif_b = LUT.LUT[:, :-1, :, :] - LUT.LUT[:, 1:, :, :]
+
+        if self.weight_b.device != dif_r:
+            self.weight_r = self.weight_r.type_as(dif_r)
+            self.weight_g = self.weight_g.type_as(dif_r)
+            self.weight_b = self.weight_b.type_as(dif_r)
+
         tv = torch.mean(torch.mul((dif_r ** 2), self.weight_r)) + torch.mean(
             torch.mul((dif_g ** 2), self.weight_g)) + torch.mean(torch.mul((dif_b ** 2), self.weight_b))
 
         mn = torch.mean(self.relu(dif_r)) + torch.mean(self.relu(dif_g)) + torch.mean(self.relu(dif_b))
         return tv, mn
-
-
-class ImageAdaptive3dLUT(nn.Module):
-    def __init__(self):
-        self.LUT0 = Generator3DLUT_identity()
-        self.LUT1 = Generator3DLUT_zero()
-        self.LUT2 = Generator3DLUT_zero()
-
-    def forward(self):
-        pass

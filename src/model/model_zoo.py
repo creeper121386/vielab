@@ -16,7 +16,7 @@ RUNTIME_NECESSARY_ARGUMENTS = {
         MODELNAME,
         PREDICT_ILLUMINATION,
         LOSS,
-        FILTERSs
+        FILTERS
     ],
 
     IA3DLUT: [

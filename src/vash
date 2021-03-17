@@ -9,15 +9,25 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
-
 # from pygments.lexers.shell import BashLexer as Lexer
 # from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.key_binding import KeyBindings
 
 if len(sys.argv) != 2:
     print('Usage: ./vash <mode>')
     sys.exit()
 mode = sys.argv[1]
 assert mode in [TRAIN, TEST]
+
+bindings = KeyBindings()
+
+
+@bindings.add('c-x')
+def _(event):
+    " Exit when `c-x` is pressed. "
+    print('\n* Exited.')
+    sys.exit()
+    event.app.exit()
 
 
 class VashCompleter(Completer):
@@ -30,7 +40,8 @@ class VashCompleter(Completer):
         self.args_values = {x: get_field_words(x) for x in self.groups}
         self.args_names.extend(self.groups)
         self.illegal_characters = ('+', ' ', '=')
-        self.path_args = [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}', f'{RUNTIME}.{LUT_FILEPATH}']
+        self.path_args = [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}', f'{RUNTIME}.{LUT_FILEPATH}',
+                          CHECKPOINT_PATH]
 
     def get_path(self, text):
         self.get_paths = lambda: ["."]
@@ -62,8 +73,8 @@ class VashCompleter(Completer):
             # Yield them.
             res = []
             for directory, filename in filenames:
-                completion = filename[len(prefix):]
-                # completion = filename
+                # completion = filename[len(prefix):]
+                completion = filename
                 full_name = os.path.join(directory, filename)
 
                 if os.path.isdir(full_name):
@@ -74,6 +85,7 @@ class VashCompleter(Completer):
 
                 for y in self.illegal_characters:
                     if y in completion:
+                        completion = completion.replace(y, '\\' + y)
                         completion = f"'{completion}'"
 
                 res.append(completion)
@@ -102,51 +114,47 @@ class VashCompleter(Completer):
 
     def get_completions(self, document, complete_event):
         # document is the whole string entered by user.
-        word_before_cursor = (document._text
+        # string = document._text
+        string = document.text_before_cursor
+        word_before_cursor = (string
             .split('=')[-1]
             .split('.')[-1]
             .split(' ')[-1])
         position = -len(word_before_cursor)
 
-        last_word = document._text.split(' ')[-1]
+        last_word = string.split(' ')[-1]
         if '=' in last_word:
-            # last word: value1=
-            # complete a args value
-            arg = last_word.split('=')[0]
-            # console.print(last_word, arg, style='bold')
+            # last word: value1=inputed_arg_value
+            # complete a args VALUE
+            arg = last_word.split('=')[0]  # name of argument
+            inputed_arg_value = last_word.split('=')[-1]  # half-inputed value by user
+
+            # complete path
+            if arg in self.path_args:
+                prefix = os.path.basename(inputed_arg_value)
+                for x in self.get_path(inputed_arg_value):
+                    yield Completion(x, start_position=-len(prefix))
+
+            # complete single-level arg value
             if '.' not in arg:
-
-                if arg == CHECKPOINT_PATH:
-                    # complete path
-                    for x in self.get_path(last_word.split('=')[-1]):
-                        yield Completion(x, start_position=0)
-                else:
-                    # complete other values
-                    if arg in self.args_values:
-                        for x in self.args_values[arg]:
+                if arg in self.args_values:
+                    for x in self.args_values[arg]:
+                        if x.startswith(inputed_arg_value):
                             yield Completion(x, start_position=position)
-
             else:
-                # complete a multi-level dict node value:
-                # for x in args_values[arg]:
-                #     yield Completion(x, start_position=position)
-                if arg in self.path_args:
-                    # complete value for ds.GT, ds.input
-                    for x in self.get_path(last_word.split('=')[-1]):
-                        yield Completion(x, start_position=0)
-                else:
-                    # complete value for other multi-level nodes.
-                    pass
+                # complete a multi-level dict node value
+                # the value is not a selected-type, skip completion.
+                pass
 
         elif '.' not in last_word:
+            # complete a single-level arg NAME
             # last word: value1
-            # complete a arg name
             for x in self.args_names:
                 if last_word in x:
                     yield Completion(x, start_position=position)
         else:
+            # complete a arg multi-level arg name
             # last word: value1.value2.value3
-            # complete a arg multi-level node name
             nodes = last_word.split('.')
             value1 = nodes[0]
             sub_dict = None
@@ -217,9 +225,10 @@ def complete_cmd():
         history=FileHistory('../.vielab-history'),
         auto_suggest=AutoSuggestFromHistory(),
         complete_in_thread=True,
+        key_bindings=bindings
     )
-    cmd = f'python {mode}.py {args}'
-    console.log(f'Start executing command:\n>>> {cmd}')
+    cmd = f'ipython {mode}.py {args}'
+    console.log(f'Start executing command:\n>>> {cmd.replace("]", "]]").replace("[", "[[")}')
     os.system(cmd)
 
 

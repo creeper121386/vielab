@@ -10,7 +10,9 @@ batchsize: 4
 lr: 1e-4
 #save_model_every: 1
 checkpoint_path: false # false for do not load runtime. Necessary when testing.
-valid_ds: false  # only for training. value selected from group `ds`
+valid_ds: false  # only for training. value selected from group `ds`. i.e. valid_ds=full_data
+valid_batchsize: 1
+checkpoint_monitor: loss
 
 # define config groups:
 defaults:

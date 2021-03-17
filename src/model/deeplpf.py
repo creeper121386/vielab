@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import util
 from globalenv import *
 from torch.autograd import Variable
-from util import ImageProcessing, saveTensorAsImg
 
 from . import unet as unet
 from .basic_loss import LTVloss
@@ -60,7 +60,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
     def log_img(self, output, img_dirpath, name, fname):
         imgpath = osp.join(img_dirpath, fname)
-        img = saveTensorAsImg(output, imgpath)
+        img = util.saveTensorAsImg(output, imgpath)
         self.logger.experiment.log_image(img, overwrite=False, name=name)
 
     def training_step(self, batch, batch_idx):
@@ -76,6 +76,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
         for k in self.losses:
             if this_losses[k] is not None:
+                # TODO: 多卡训练时，这里报错两个tensor分别在两块卡上：
                 self.losses[k] += this_losses[k]
             else:
                 self.losses[k] = STRING_FALSE
@@ -110,9 +111,9 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
         # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
         fname = fname[0]
-        saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+        util.saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
         if PREDICT_ILLUMINATION in output_dict:
-            saveTensorAsImg(
+            util.saveTensorAsImg(
                 output_dict[PREDICT_ILLUMINATION],
                 os.path.join(self.illumination_dirpath, osp.basename(fname))
             )
@@ -120,10 +121,10 @@ class DeepLpfLitModel(pl.core.LightningModule):
         # test with GT:
         if OUTPUT_IMG in batch:
             # calculate metrics:
-            output_ = output.clone().detach().cpu().numpy()
-            y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
-            psnr = ImageProcessing.compute_psnr(output_, y_, 1.0)
-            ssim = ImageProcessing.compute_ssim(output_, y_)
+            output_ = util.cuda_tensor_to_ndarray(output)
+            y_ = util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG])
+            psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
+            ssim = util.ImageProcessing.compute_ssim(output_, y_)
             for x, y in {PSNR: psnr, SSIM: ssim}.items():
                 self.log(x, y, on_step=True, on_epoch=True)
 
@@ -315,9 +316,9 @@ class DeepLPFLoss(nn.Module):
             target_img = target_img_batch[i, :, :, :].type_as(predicted_img_batch)
             predicted_img = predicted_img_batch[i, :, :, :].type_as(predicted_img_batch)
 
-            predicted_img_lab = ImageProcessing.rgb_to_lab(
+            predicted_img_lab = util.ImageProcessing.rgb_to_lab(
                 predicted_img.squeeze(0))
-            target_img_lab = ImageProcessing.rgb_to_lab(target_img.squeeze(0))
+            target_img_lab = util.ImageProcessing.rgb_to_lab(target_img.squeeze(0))
 
             target_img_L_ssim = target_img_lab[0, :, :].unsqueeze(0)
             predicted_img_L_ssim = predicted_img_lab[0, :, :].unsqueeze(0)

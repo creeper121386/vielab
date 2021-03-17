@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import os.path as osp
 
 import comet_ml
 import hydra
+import yaml
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -52,11 +54,15 @@ def main(config):
 
     valid_loader = None
     if opt[VALID_DATA]:
+        # TODO: 这里valid_ds是手动用yaml解析的。有无办法让hydra自动解析啊
+        opt[VALID_DATA] = yaml.load(open(osp.join(CONFIG_DIRPATH, DATA, f'{opt[VALID_DATA]}.yaml'), 'r').read(),
+                                    Loader=yaml.FullLoader)
+
         valid_dataset = ImagesDataset(opt, data_dict=None, ds_type=VALID_DATA, transform=transform)
         valid_loader = torch.utils.data.DataLoader(
             valid_dataset,
-            batch_size=opt[BATCHSIZE],
-            shuffle=True,
+            batch_size=opt[VALID_BATCHSIZE],
+            shuffle=False,
             num_workers=opt[DATALOADER_NUM_WORKER]
         )
     console.log('Finish loading data.')
@@ -66,9 +72,9 @@ def main(config):
         dirpath=opt[LOG_DIRPATH],
         save_last=True,
         save_weights_only=True,
-        filename='{epoch:}-{step}-{loss:.3f}',
+        filename='{epoch:}-{step}',
         save_top_k=10,  # save 10 model
-        monitor='loss',
+        monitor=opt[CHECKPOINT_MONITOR],
     )
 
     # trainer logger:

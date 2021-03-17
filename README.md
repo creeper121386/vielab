@@ -141,3 +141,4 @@ arguments `ds.GT`, `ds.input` and `checkpoint_path`. See the demo gif:
 
 ![demo gif](figures/output.gif)
 
+You can also press `up` and `down` to toggle in history commands or press `Ctrl + r` to search in history like in bash.

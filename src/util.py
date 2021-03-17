@@ -84,6 +84,9 @@ from torchvision import transforms
 #
 #     return opt
 
+def cuda_tensor_to_ndarray(cuda_tensor):
+    return cuda_tensor.clone().detach().cpu().numpy()
+
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
@@ -200,16 +203,17 @@ def configLogging(mode, opt):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
 
-    for k, v in opt.items():
-        logging.info(f'*** Param - {k}: {v}')
+    # for k, v in opt.items():
+    #     logging.info(f'*** Param - {k}: {v}')
 
     return log_dirpath, img_dirpath
 
 
 def saveTensorAsImg(output, path, resize=False):
     # save the first image of a batch
-    outImg = output[0].permute(
-        1, 2, 0).clone().detach().cpu().numpy() * 255.0
+    outImg = cuda_tensor_to_ndarray(
+        output[0].permute(1, 2, 0)
+    ) * 255.0
     outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
 
     if resize:

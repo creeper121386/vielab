@@ -52,7 +52,9 @@ GPU = 'gpu'
 RUNTIME = 'runtime'
 MODELNAME = 'modelname'
 BATCHSIZE = 'batchsize'
+VALID_BATCHSIZE = 'valid_batchsize'
 LR = 'lr'
+CHECKPOINT_MONITOR = 'checkpoint_monitor'
 
 # config.loss
 LTV_LOSS = 'ltv'
@@ -116,6 +118,7 @@ TRAIN_NECESSARY_ARGUMENTS = [
     LOG_EVERY,
     # SAVE_MODEL_EVERY,
     AUGMENTATION,
+    VALID_BATCHSIZE
 ]
 
 # extra required arguments for all models when testing/evaluating:
