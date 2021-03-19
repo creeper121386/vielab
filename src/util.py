@@ -17,12 +17,13 @@ import os
 import os.path as osp
 
 import cv2
+import model.model_zoo as zoo
 import numpy as np
 import omegaconf
 import torch
 import yaml
+from globalenv import *
 from matplotlib.image import imread
-from model.model_zoo import *
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
@@ -176,6 +177,7 @@ def parseAugmentation(opt):
     return: pytorch composed transform
     '''
     aug_config = opt[AUGMENTATION]
+    # TODO 在这里写一个自定义class，实现随机亮度&对比度增强
 
     aug_list = [transforms.ToPILImage(), ]
     if aug_config[HORIZON_FLIP]:
@@ -249,8 +251,8 @@ def checkConfig(opt, mode):
         checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
 
     # check necessary arguments for EACH MODEL:
-    assert opt[RUNTIME][MODELNAME] in MODEL_ZOO
-    for x in RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
+    assert opt[RUNTIME][MODELNAME] in zoo.MODEL_ZOO
+    for x in zoo.RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
         checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
 
     if type(opt) == omegaconf.DictConfig:

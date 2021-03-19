@@ -84,7 +84,8 @@ class ImagesDataset(torch.utils.data.Dataset):
 
         # ─── APPLY PYTORCH TRANSFORM: ────────────────────────────────────
         random.seed(seed)
-        img = self.transform(img)
+        if self.transform:
+            img = self.transform(img)
 
         # console.log('', log_locals=True)
 

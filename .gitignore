@@ -6,6 +6,7 @@ src/.hydra/
 src/outputs/
 src/*.log
 debug/
+src/lightning_logs*
 *cache*
 *log
 .DS_Store

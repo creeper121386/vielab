@@ -146,7 +146,6 @@ class IA3DLUTLitModel(BaseModel):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # TODO 检查 train 和 valid 的功能正确性
         # get output
         input_batch, gt_batch, fname = Variable(batch[INPUT_IMG], requires_grad=False), \
                                        Variable(batch[OUTPUT_IMG], requires_grad=False), batch[NAME]
@@ -168,8 +167,9 @@ class IA3DLUTLitModel(BaseModel):
         # log to pl and comet
         valid_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
 
-        # TODO 这里很奇怪，每个epoch会新建一个key
         for x, y in valid_metrics.items():
+            # Tips: if call self.log with on_step=True here, metrics will bacome "valid.psnr/epoch_xxx"
+            # So just call without arguments.
             self.log(x, y, prog_bar=True)
 
         return output_batch
@@ -192,6 +192,7 @@ class IA3DLUTLitModel(BaseModel):
                 util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG]), 1.0
             )
             self.log(PSNR, psnr, prog_bar=True)
+        return output
 
     def forward(self, x):
         return self.eval_forward_one_img(x)

@@ -3,6 +3,7 @@ import logging
 
 import hydra
 import torch
+import torchvision
 from data import ImagesDataset
 from globalenv import *
 from model.model_zoo import MODEL_ZOO
@@ -25,6 +26,16 @@ def main(opt):
     console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
 
     transform = parseAugmentation(opt)
+    if opt[AUGMENTATION][CROP]:
+        console.log(
+            f'[yellow]WRAN: You are testing the model but aug.crop is {opt[AUGMENTATION][CROP]}. Ignore the crop? (Y/n) [/yellow]')
+        res = input()
+        if res == 'n':
+            console.log('Testing with cropped data...')
+        else:
+            console.log('Ignore and set transform=None...')
+            transform = torchvision.transforms.ToTensor()
+
     ds = ImagesDataset(opt, data_dict=None, ds_type=DATA, transform=transform)
     dataloader = torch.utils.data.DataLoader(
         ds,
