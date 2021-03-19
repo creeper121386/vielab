@@ -2,20 +2,23 @@ import itertools
 import os.path as osp
 
 import numpy as np
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import trilinear
+
+try:
+    import trilinear
+except:
+    Warning('WARN: Can not import module `trilinear`')
 import util
 from globalenv import *
 from torch.autograd import Variable
+from .basemodel import BaseModel
 
 
-class IA3DLUTLitModel(pl.core.LightningModule):
+class IA3DLUTLitModel(BaseModel):
     def __init__(self, opt):
-        super().__init__()
-        self.save_hyperparameters(opt)
+        super().__init__(opt)
         self.luts = torch.nn.ModuleList([
             Generator3DLUT_identity(opt),
             Generator3DLUT_zero(),
@@ -27,17 +30,12 @@ class IA3DLUTLitModel(pl.core.LightningModule):
 
         console.log('Running initialization for IA3DLUTLitModel')
         if not opt[CHECKPOINT_PATH]:
+            # evne if when passing opt[CHECKPOINT_PATH], the LitModel will execute the __init__ method.
+            # so when passing CHECKPOINT_PATH, skip classifier parameter init.
             self.cnn.apply(weights_init_normal_classifier)
             torch.nn.init.constant_(self.cnn.model[16].bias.data, 1.0)
 
-        self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
-        self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
-
-        self.iternum = 0
-        self.epoch = 0
-        self.opt = opt
         self.criterion = torch.nn.MSELoss()
-
         self.train_metrics = {
             # PSNR: 0,
             MSE: 0,  # mse loss
@@ -52,22 +50,11 @@ class IA3DLUTLitModel(pl.core.LightningModule):
             WEIGHTS_NORM: 0,
         }
 
-    def get_progress_bar_dict(self):
-        items = super().get_progress_bar_dict()
-        items.pop("v_num", None)
-        items.pop("loss", None)
-        return items
-
     def configure_optimizers(self):
 
         return optim.Adam(
             itertools.chain(self.cnn.parameters(), *[x.parameters() for x in self.luts]),
             lr=self.opt[LR], betas=(self.opt[RUNTIME][BETA1], self.opt[RUNTIME][BETA2]), eps=1e-08)
-
-    def log_img(self, output, img_dirpath, logname, fname):
-        imgpath = osp.join(img_dirpath, fname)
-        img = util.saveTensorAsImg(output, imgpath)
-        self.logger.experiment.log_image(img, overwrite=False, name=logname)
 
     def train_forward_one_batch(self, batch):
         '''
@@ -143,38 +130,33 @@ class IA3DLUTLitModel(pl.core.LightningModule):
                 self.opt[RUNTIME][LAMBDA_SMOOTH] * (self.train_metrics[WEIGHTS_NORM] + self.train_metrics[TV_CONS]) +
                 self.opt[RUNTIME][LAMBDA_MONOTONICITY] * self.train_metrics[MN_CONS])
 
+        self.train_metrics[MSE] = mse
+        self.train_metrics[LOSS] = loss
+
         # get psnr
-        # import ipdb;
-        # ipdb.set_trace()
         self.train_metrics[PSNR] = util.ImageProcessing.compute_psnr(
             util.cuda_tensor_to_ndarray(output_batch),
             util.cuda_tensor_to_ndarray(gt_batch), 1.0
         )
 
-        # log to pl
-        for x, y in self.train_metrics.items():
-            self.log(x, y)  # , on_step=False, on_epoch=True, prog_bar=True)
-
         # log to comet
-        self.logger.experiment.log_metrics(self.train_metrics)
+        for x, y in self.train_metrics.items():
+            self.log(x, y, prog_bar=True)
 
-        # save images
-        if batch_idx % self.opt[LOG_EVERY] == 0:
-            fname = f'epoch{self.epoch}_iter{batch_idx}.png'
-            self.log_img(output_batch, self.train_img_dirpath, OUTPUT_IMG, fname)
         return loss
 
     def validation_step(self, batch, batch_idx):
         # TODO 检查 train 和 valid 的功能正确性
         # get output
-        input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                Variable(batch[OUTPUT_IMG],
-                                         requires_grad=False)
+        input_batch, gt_batch, fname = Variable(batch[INPUT_IMG], requires_grad=False), \
+                                       Variable(batch[OUTPUT_IMG], requires_grad=False), batch[NAME]
+        if type(fname) == list:
+            fname = fname[0]
         output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
 
         # save valid images
         if batch_idx % self.opt[LOG_EVERY] == 0:
-            fname = f'epoch{self.epoch}_iter{batch_idx}.png'
+            fname = osp.basename(fname) + f'_epoch{self.epoch}_iter{batch_idx}.png'
             self.log_img(output_batch, self.valid_img_dirpath, OUTPUT_IMG, fname)
 
         # get psnr
@@ -184,40 +166,32 @@ class IA3DLUTLitModel(pl.core.LightningModule):
         )
 
         # log to pl and comet
-        logged_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
-        self.logger.experiment.log_metrics(logged_metrics)
-        for x, y in logged_metrics.items():
-            self.log(x, y)
+        valid_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
 
-    def training_epoch_end(self, outputs):
-        self.epoch += 1
+        # TODO 这里很奇怪，每个epoch会新建一个key
+        for x, y in valid_metrics.items():
+            self.log(x, y, prog_bar=True)
+
+        return output_batch
 
     def test_step(self, batch, batch_ix):
-        # TODO 修改这里 这里现在还是从deeplpf复制过来的
-        pass
-        # # test without GT image:
-        # input_batch, fname = batch[INPUT_IMG], batch[NAME]
-        # output_dict = self.net(input_batch)
-        # output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
-        #
-        # # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
-        # fname = fname[0]
-        # util.saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
-        # if PREDICT_ILLUMINATION in output_dict:
-        #     util.saveTensorAsImg(
-        #         output_dict[PREDICT_ILLUMINATION],
-        #         os.path.join(self.illumination_dirpath, osp.basename(fname))
-        #     )
-        #
-        # # test with GT:
-        # if OUTPUT_IMG in batch:
-        #     # calculate metrics:
-        #     output_ = output.clone().detach().cpu().numpy()
-        #     y_ = batch[OUTPUT_IMG].clone().detach().cpu().numpy()
-        #     psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
-        #     ssim = util.ImageProcessing.compute_ssim(output_, y_)
-        #     for x, y in {PSNR: psnr, SSIM: ssim}.items():
-        #         self.log(x, y, on_step=True, on_epoch=True)
+        # test without GT image:
+        input_batch, fname = batch[INPUT_IMG], batch[NAME]
+        output, _ = self.eval_forward_one_img(input_batch)
+
+        # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
+        if type(fname) == list:
+            fname = fname[0]
+        util.saveTensorAsImg(output, osp.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+
+        # test with GT:
+        if OUTPUT_IMG in batch:
+            # calculate metrics:
+            psnr = util.ImageProcessing.compute_psnr(
+                util.cuda_tensor_to_ndarray(output),
+                util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG]), 1.0
+            )
+            self.log(PSNR, psnr, prog_bar=True)
 
     def forward(self, x):
         return self.eval_forward_one_img(x)

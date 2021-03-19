@@ -95,6 +95,19 @@ export COMET_WORKSPACE=<your_workspace>
 
 If you don't have `comet_ml` account, you could use other loggers supported by `pytorch-lightning` if you want.
 
+### `LightningModule.log`
+
+When you create your new model class, you could call `self.log(name, value, on_step, on_epoch)` in
+your `LightningModule` class to auto-log the metrics to the comet logger. In pytorch-lightning doc:
+
+> Depending on where log is called from, Lightning auto-determines the correct logging mode for you.
+
+which means if you call `self.log` in `training_step`,
+`on_step=True, on_epoch=False` by default. if you call `self.log` in `validation_step`, `on_step=False, on_epoch=True`
+by default.
+
+So just call `self.log(name, value)` and leaving the arguments' default values is OK.
+
 ### Use GPU
 
 Argument `gpu` can be an integer which means number of gpus to train on, or a list which GPUs to train on.

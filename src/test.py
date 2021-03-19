@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+
 import hydra
 import torch
 from data import ImagesDataset
 from globalenv import *
+from model.model_zoo import MODEL_ZOO
 from pytorch_lightning import Trainer
 from util import checkConfig, configLogging, parseAugmentation
 
@@ -15,10 +18,7 @@ def main(opt):
     pl_logger = logging.getLogger("lightning")
     pl_logger.propagate = False
 
-    modelname = opt[RUNTIME][MODELNAME]
-    if modelname not in MODEL_ZOO:
-        raise RuntimeError(f'ERR: Model {modelname} not found. Please change the argument `runtime.modelname`')
-    ModelClass = MODEL_ZOO[modelname]
+    ModelClass = MODEL_ZOO[opt[RUNTIME][MODELNAME]]
 
     assert opt[CHECKPOINT_PATH]
     model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
@@ -33,7 +33,6 @@ def main(opt):
         num_workers=opt[DATALOADER_NUM_WORKER]
     )
     trainer = Trainer(gpus=opt[GPU], distributed_backend='dp')
-
     trainer.test(model, dataloader)
 
 

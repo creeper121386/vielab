@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
-import os.path as osp
 
 import comet_ml
 import hydra
-import yaml
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -32,10 +30,7 @@ def main(config):
     pl_logger.propagate = False
 
     # init model:
-    modelname = opt[RUNTIME][MODELNAME]
-    if modelname not in MODEL_ZOO:
-        raise RuntimeError(f'ERR: Model {modelname} not found. Please change the argument `runtime.modelname`')
-    ModelClass = MODEL_ZOO[modelname]
+    ModelClass = MODEL_ZOO[opt[RUNTIME][MODELNAME]]
     if opt[CHECKPOINT_PATH]:
         model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
         console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
@@ -53,11 +48,7 @@ def main(config):
     )
 
     valid_loader = None
-    if opt[VALID_DATA]:
-        # TODO: 这里valid_ds是手动用yaml解析的。有无办法让hydra自动解析啊
-        opt[VALID_DATA] = yaml.load(open(osp.join(CONFIG_DIRPATH, DATA, f'{opt[VALID_DATA]}.yaml'), 'r').read(),
-                                    Loader=yaml.FullLoader)
-
+    if opt[VALID_DATA] and opt[VALID_DATA][INPUT]:
         valid_dataset = ImagesDataset(opt, data_dict=None, ds_type=VALID_DATA, transform=transform)
         valid_loader = torch.utils.data.DataLoader(
             valid_dataset,
@@ -95,6 +86,7 @@ def main(config):
         max_epochs=opt[NUM_EPOCH],
         logger=comet_logger,
         callbacks=[checkpoint_callback],
+        check_val_every_n_epoch=opt[VALID_EVERY]
     )
 
     # training loop

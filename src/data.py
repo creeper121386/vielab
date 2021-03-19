@@ -9,6 +9,18 @@ from globalenv import *
 
 
 class ImagesDataset(torch.utils.data.Dataset):
+    def load_from_glob_list(self, globs):
+        if type(globs) == str:
+            return glob(globs)
+        elif type(globs) == list:
+            res = []
+            for g in globs:
+                res.extend(glob(g))
+            return sorted(res)
+        else:
+            raise TypeError(
+                f'ERR: Argument `ds.GT` or `ds.input` has wrong type: expect `str` or `list` but get {type(globs)}')
+
     def __init__(self, opt, data_dict, ds_type=DATA, transform=None):
         """Initialisation for the Dataset object
 
@@ -22,19 +34,19 @@ class ImagesDataset(torch.utils.data.Dataset):
         self.data_dict = data_dict
         self.opt = opt
 
-        gt_glob = opt[ds_type][GT_DIRPATH]
-        input_glob = opt[ds_type][INPUT_DIRPATH]
-        self.have_gt = True if gt_glob else False
+        gt_globs = opt[ds_type][GT_DIRPATH]
+        input_globs = opt[ds_type][INPUT_DIRPATH]
+        self.have_gt = True if gt_globs else False
 
-        console.log(f'GT Directory path: [yellow]{gt_glob}[/yellow]')
-        console.log(f'Input Directory path: [yellow]{input_glob}[/yellow]')
+        console.log(f'[[{ds_type}]] GT Directory path: [yellow]{gt_globs}[/yellow]')
+        console.log(f'[[{ds_type}]] Input Directory path: [yellow]{input_globs}[/yellow]')
 
         # load input images:
-        self.input_list = glob(input_glob)
+        self.input_list = self.load_from_glob_list(input_globs)
 
         # load GT images:
         if self.have_gt:
-            self.gt_list = glob(gt_glob)
+            self.gt_list = self.load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
         console.log('Dataset length: ', len(self.input_list))

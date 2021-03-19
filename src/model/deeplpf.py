@@ -3,7 +3,6 @@ import os
 import os.path as osp
 from math import exp
 
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,15 +12,14 @@ from globalenv import *
 from torch.autograd import Variable
 
 from . import unet as unet
+from .basemodel import BaseModel
 from .basic_loss import LTVloss
 
 
-class DeepLpfLitModel(pl.core.LightningModule):
+class DeepLpfLitModel(BaseModel):
     def __init__(self, opt):
-        super().__init__()
-        self.save_hyperparameters(opt)
-
-        if opt[VALID_DATA]:
+        super().__init__(opt)
+        if opt[VALID_DATA][INPUT]:
             console.log('[yellow]WARNING: valid mode is not supported in DeepLPF, ignore valid_dataloader.[/yellow]')
 
         self.net = DeepLPFNet(opt)
@@ -37,9 +35,6 @@ class DeepLpfLitModel(pl.core.LightningModule):
             PSNR: 0,
             SSIM: 0
         }
-        self.iternum = 0
-        self.epoch = 0
-        self.opt = opt
         self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
         if opt[RUNTIME][PREDICT_ILLUMINATION] and not os.path.exists(self.illumination_dirpath):
             os.makedirs(self.illumination_dirpath)
@@ -47,21 +42,10 @@ class DeepLpfLitModel(pl.core.LightningModule):
         self.criterion = DeepLPFLoss(opt, ssim_window_size=5)
         self.net.train()
 
-    def get_progress_bar_dict(self):
-        items = super().get_progress_bar_dict()
-        items.pop("v_num", None)
-        items.pop("loss", None)
-        return items
-
     def configure_optimizers(self):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters(
         )), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
         return optimizer
-
-    def log_img(self, output, img_dirpath, name, fname):
-        imgpath = osp.join(img_dirpath, fname)
-        img = util.saveTensorAsImg(output, imgpath)
-        self.logger.experiment.log_image(img, overwrite=False, name=name)
 
     def training_step(self, batch, batch_idx):
         input_batch, gt_batch, category = Variable(batch[INPUT_IMG], requires_grad=False), \
@@ -83,10 +67,11 @@ class DeepLpfLitModel(pl.core.LightningModule):
 
         for x, y in self.losses.items():
             if y != STRING_FALSE:
-                self.log(x, y, on_step=False, on_epoch=True, prog_bar=True)
+                # `self.log_dict` will cause key error.
+                self.log(x, y, prog_bar=True)
 
         # log to comet
-        self.logger.experiment.log_metrics(self.losses)
+        # self.logger.experiment.log_metrics(self.losses)
 
         # save images
         if batch_idx % self.opt[LOG_EVERY] == 0:
@@ -96,12 +81,6 @@ class DeepLpfLitModel(pl.core.LightningModule):
             if PREDICT_ILLUMINATION in output_dict:
                 self.log_img(output, self.illumination_dirpath, PREDICT_ILLUMINATION, fname)
         return loss
-
-    def training_epoch_end(self, outputs):
-        self.epoch += 1
-
-    def test_batch_without_gt(self, batch):
-        pass
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
@@ -125,8 +104,7 @@ class DeepLpfLitModel(pl.core.LightningModule):
             y_ = util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG])
             psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
             ssim = util.ImageProcessing.compute_ssim(output_, y_)
-            for x, y in {PSNR: psnr, SSIM: ssim}.items():
-                self.log(x, y, on_step=True, on_epoch=True)
+            self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True)
 
     def forward(self, x):
         return self.net(x)

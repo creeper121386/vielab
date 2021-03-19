@@ -158,7 +158,7 @@ def parseConfig(dirpath):
     │   ├── support.yaml
     │   └── warehouse.yaml
     └── ui
-        ├── full.yaml
+        ├── full_data.train.yaml
         └── view.yaml
 
     And the config.yaml is:

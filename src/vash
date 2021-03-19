@@ -138,6 +138,7 @@ class VashCompleter(Completer):
             # complete single-level arg value
             if '.' not in arg:
                 if arg in self.args_values:
+                    # complete group arg value
                     for x in self.args_values[arg]:
                         if x.startswith(inputed_arg_value):
                             yield Completion(x, start_position=position)
@@ -151,7 +152,11 @@ class VashCompleter(Completer):
             # last word: value1
             for x in self.args_names:
                 if last_word in x:
-                    yield Completion(x, start_position=position)
+                    if x in self.conf:
+                        yield Completion(x, display=x + f' (default={self.conf[x]})', start_position=position)
+                    else:
+                        yield Completion(x, start_position=position)
+
         else:
             # complete a arg multi-level arg name
             # last word: value1.value2.value3
