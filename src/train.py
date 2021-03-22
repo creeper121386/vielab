@@ -13,13 +13,14 @@ from data import ImagesDataset
 from globalenv import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CometLogger
-from util import checkConfig, configLogging, parseAugmentation
+from util import checkConfig, configLogging, parseAugmentation, server_chan_send
 
 from model.model_zoo import MODEL_ZOO
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
+    1 / 0
     # config and logging:
     # config = init_config(config)
     opt = checkConfig(config, TRAIN)
@@ -94,4 +95,8 @@ def main(config):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        console.log(e)
+        server_chan_send('[Exception] Training stop.', str(e))

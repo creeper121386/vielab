@@ -20,6 +20,7 @@ import cv2
 import model.model_zoo as zoo
 import numpy as np
 import omegaconf
+import requests
 import torch
 import yaml
 from globalenv import *
@@ -84,6 +85,22 @@ from torchvision import transforms
 #         print()
 #
 #     return opt
+
+def server_chan_send(title, msg):
+    if 'SEND_KEY' not in os.environ:
+        console.log('No server chan send key found. To login server chan, visit: https://sct.ftqq.com/sendkey')
+        return
+
+    send_key = os.environ['SEND_KEY']
+    requests.post(f'https://sctapi.ftqq.com/{send_key}.send',
+                  {
+                      'title': str(title),
+                      'desp': str(msg)
+                  })
+    console.log('Message sent to server chan:')
+    console.log(title)
+    console.log(msg)
+
 
 def cuda_tensor_to_ndarray(cuda_tensor):
     return cuda_tensor.clone().detach().cpu().numpy()

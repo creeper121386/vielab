@@ -73,7 +73,7 @@ python train.py ds=my_data runtime=deeplpf.config1 aug=resize runtime.loss.ltv=0
 You could run this command in bash or zsh, but a better way is to run in `vash`: a simple "shell" only for this project.
 For more details, see the [Running in vash](#running) part.
 
-### What about testing and evaluation?
+### Testing and evaluation
 
 Assume that you have created config files for training a model. I suggest you only change those necessary parameters
 when testing/evaluating the same model (like `name` and `checkpoint_path`). Just left other parameters their default
