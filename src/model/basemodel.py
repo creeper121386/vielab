@@ -3,6 +3,7 @@ import os.path as osp
 
 import pytorch_lightning as pl
 import util
+import wandb
 from globalenv import *
 
 
@@ -34,7 +35,11 @@ class BaseModel(pl.core.LightningModule):
         img = util.saveTensorAsImg(batch, imgpath)
 
         assert self.logger
-        self.logger.experiment.log_image(img, overwrite=False, name=f'{logname}_{fname}')
+        # comet:
+        # self.logger.experiment.log_image(img, overwrite=False, name=f'{logname}_{fname}')
+
+        # wandb:
+        self.logger.experiment.log({'Images': [wandb.Image(img, caption=f'{logname}_{fname}')]})
 
     def training_epoch_end(self, outputs):
         self.epoch += 1
