@@ -27,10 +27,10 @@ SKIP_FLAG = 'q'
 DEFAULTS = 'defaults'
 HYDRA = 'hydra'
 
-# fields in data.py (result of dataset[i])s
+# fields in dataset.py (result of dataset[i])s
 INPUT_IMG = 'input_img'
 OUTPUT_IMG = 'output_img'
-NAME = 'name'
+FNAME = 'fname'
 
 # config.yml
 DEBUG = 'debug'
@@ -69,8 +69,10 @@ SSIM = 'ssim'
 # config.aug
 VERTICAL_FLIP = 'v-flip'
 HORIZON_FLIP = 'h-flip'
-RESIZE = 'resize'
+DOWNSAMPLE = 'downsample'
 CROP = 'crop'
+LIGHTNESS_ADJUST = 'lightness_adjust'
+CONTRAST_ADJUST = 'contrast_adjust'
 
 # config.runtime.modelname
 DEEP_LPF = 'deeplpf'

@@ -139,7 +139,7 @@ class IA3DLUTLitModel(BaseModel):
             util.cuda_tensor_to_ndarray(gt_batch), 1.0
         )
 
-        # log to comet
+        # log to logger
         for x, y in self.train_metrics.items():
             self.log(x, y, prog_bar=True)
 
@@ -148,7 +148,7 @@ class IA3DLUTLitModel(BaseModel):
     def validation_step(self, batch, batch_idx):
         # get output
         input_batch, gt_batch, fname = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                       Variable(batch[OUTPUT_IMG], requires_grad=False), batch[NAME]
+                                       Variable(batch[OUTPUT_IMG], requires_grad=False), batch[FNAME]
         if type(fname) == list:
             fname = fname[0]
         output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
@@ -156,7 +156,11 @@ class IA3DLUTLitModel(BaseModel):
         # save valid images
         if batch_idx % self.opt[LOG_EVERY] == 0:
             fname = osp.basename(fname) + f'_epoch{self.epoch}_iter{batch_idx}.png'
-            self.log_img(output_batch, self.valid_img_dirpath, OUTPUT_IMG, fname)
+            self.log_img(output_batch, self.valid_img_dirpath, fname)
+            self.add_img_to_logger_buffer(output_batch, OUTPUT_IMG, fname)
+            self.add_img_to_logger_buffer(input_batch, INPUT_IMG, fname)
+            self.add_img_to_logger_buffer(gt_batch, 'GT', fname)
+            self.commit_logger_buffer()
 
         # get psnr
         self.valid_metrics[PSNR] = util.ImageProcessing.compute_psnr(
@@ -164,7 +168,7 @@ class IA3DLUTLitModel(BaseModel):
             util.cuda_tensor_to_ndarray(gt_batch), 1.0
         )
 
-        # log to pl and comet
+        # log to pl and logger
         valid_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
 
         for x, y in valid_metrics.items():
@@ -176,7 +180,7 @@ class IA3DLUTLitModel(BaseModel):
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], batch[NAME]
+        input_batch, fname = batch[INPUT_IMG], batch[FNAME]
         output, _ = self.eval_forward_one_img(input_batch)
 
         # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了

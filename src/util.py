@@ -28,7 +28,6 @@ from matplotlib.image import imread
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
-from torchvision import transforms
 
 
 # def init_config(opt):
@@ -108,12 +107,13 @@ def cuda_tensor_to_ndarray(cuda_tensor):
 
 def calculate_psnr(img1, img2):
     # img1 and img2 have range [0, 255]
+    # shape: [H, W, C]
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
     mse = np.mean((img1 - img2) ** 2)
     if mse == 0:
         return float('inf')
-    return 20 * math.log10(255.0 / math.sqrt(mse))
+    return 20 * np.log10(255.0 / np.sqrt(mse))
 
 
 def ssim_com(img1, img2):
@@ -143,7 +143,7 @@ def calculate_ssim(img1, img2):
     """
     calculate SSIM
     the same outputs as MATLAB's
-    img1, img2: [0, 255]
+    img1, img2: [0, 255] numpy array. shape: [H, W, C]
     """
     if not img1.shape == img2.shape:
         raise ValueError('Input images must have the same dimensions.')
@@ -189,24 +189,6 @@ def parseConfig(dirpath):
     pass
 
 
-def parseAugmentation(opt):
-    '''
-    return: pytorch composed transform
-    '''
-    aug_config = opt[AUGMENTATION]
-    # TODO 在这里写一个自定义class，实现随机亮度&对比度增强
-
-    aug_list = [transforms.ToPILImage(), ]
-    if aug_config[HORIZON_FLIP]:
-        aug_list.append(transforms.RandomHorizontalFlip())
-
-    elif aug_config[VERTICAL_FLIP]:
-        aug_list.append(transforms.RandomVerticalFlip())
-
-    aug_list.append(transforms.ToTensor())
-    return transforms.Compose(aug_list)
-
-
 def configLogging(mode, opt):
     log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[EXPNAME]}_" + \
                   datetime.datetime.now().strftime(LOG_TIME_FORMAT)
@@ -229,7 +211,10 @@ def configLogging(mode, opt):
 
 
 def saveTensorAsImg(output, path, resize=False):
-    # save the first image of a batch
+    # save the first image of A BATCH
+    if len(output.shape) == 3:
+        output = output.unsqueeze(0)
+
     outImg = cuda_tensor_to_ndarray(
         output[0].permute(1, 2, 0)
     ) * 255.0

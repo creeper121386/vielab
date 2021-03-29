@@ -2,25 +2,25 @@
 import logging
 import os
 
-import comet_ml
+# import comet_ml
 import hydra
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import pytorch_lightning as pl
 import torch
-from data import ImagesDataset
+from dataset import ImagesDataset
 from globalenv import *
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CometLogger
-from util import checkConfig, configLogging, parseAugmentation, server_chan_send
+from pytorch_lightning.loggers import WandbLogger
+from util import checkConfig, configLogging, server_chan_send
+from data_aug import parseAugmentation
 
 from model.model_zoo import MODEL_ZOO
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
-    1 / 0
     # config and logging:
     # config = init_config(config)
     opt = checkConfig(config, TRAIN)
@@ -70,13 +70,18 @@ def main(config):
     )
 
     # trainer logger:
-    comet_ml.config.DEBUG = False
-    comet_logger = CometLogger(
-        api_key=os.environ.get('COMET_API_KEY'),
-        workspace=os.environ.get('COMET_WORKSPACE'),  # Optional
-        # save_dir='../',  # used in local mode
-        project_name='vielab',  # Optional
-        experiment_name=opt[EXPNAME]  # Optional
+    # comet_ml.config.DEBUG = False
+    # comet_logger = CometLogger(
+    #     api_key=os.environ.get('COMET_API_KEY'),
+    #     workspace=os.environ.get('COMET_WORKSPACE'),  # Optional
+    #     # save_dir='../',  # used in local mode
+    #     project_name='vielab',  # Optional
+    #     experiment_name=opt[EXPNAME]  # Optional
+    # )
+
+    mylogger = WandbLogger(
+        name=opt[EXPNAME],
+        project='vielab'
     )
 
     # init trainer:
@@ -85,7 +90,7 @@ def main(config):
         distributed_backend='dp',
         # auto_select_gpus=True,
         max_epochs=opt[NUM_EPOCH],
-        logger=comet_logger,
+        logger=mylogger,
         callbacks=[checkpoint_callback],
         check_val_every_n_epoch=opt[VALID_EVERY]
     )

@@ -50,7 +50,7 @@ class DeepLpfLitModel(BaseModel):
     def training_step(self, batch, batch_idx):
         input_batch, gt_batch, category = Variable(batch[INPUT_IMG], requires_grad=False), \
                                           Variable(batch[OUTPUT_IMG],
-                                                   requires_grad=False), batch[NAME]
+                                                   requires_grad=False), batch[FNAME]
         output_dict = self.net(input_batch)
         output = torch.clamp(
             output_dict[OUTPUT], 0.0, 1.0)
@@ -70,21 +70,25 @@ class DeepLpfLitModel(BaseModel):
                 # `self.log_dict` will cause key error.
                 self.log(x, y, prog_bar=True)
 
-        # log to comet
+        # log to logger
         # self.logger.experiment.log_metrics(self.losses)
 
         # save images
         if batch_idx % self.opt[LOG_EVERY] == 0:
             fname = f'epoch{self.epoch}_iter{batch_idx}.png'
-            self.log_img(output, self.opt[IMG_DIRPATH], OUTPUT_IMG, fname)
+            self.add_img_to_logger_buffer(output, OUTPUT_IMG, fname)
+            self.log_img(output, self.opt[IMG_DIRPATH], fname)
 
             if PREDICT_ILLUMINATION in output_dict:
-                self.log_img(output, self.illumination_dirpath, PREDICT_ILLUMINATION, fname)
+                self.log_img(output_dict[PREDICT_ILLUMINATION], self.illumination_dirpath, fname)
+                self.add_img_to_logger_buffer(output_dict[PREDICT_ILLUMINATION], PREDICT_ILLUMINATION, fname)
+
+            self.commit_logger_buffer()
         return loss
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], batch[NAME]
+        input_batch, fname = batch[INPUT_IMG], batch[FNAME]
         output_dict = self.net(input_batch)
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
@@ -1165,16 +1169,16 @@ class DeepLPFNet(nn.Module):
         """
         feat = self.backbonenet(input)
         output = self.deeplpfnet(feat) + 1e-8
-        res = dict()
+        output_dict = dict()
 
         if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
-            res[PREDICT_ILLUMINATION] = output
+            output_dict[PREDICT_ILLUMINATION] = output
 
             # limit (input / out) to 0 ~ 1
             # 对于输出结果(L)中，比input还小的部分，直接取input
             # 防止预测的L，比input值（暗光图）还要小:
             output = input / torch.where(output < input, input, output)
 
-        res[INPUT] = input
-        res[OUTPUT] = output
-        return res
+        output_dict[INPUT] = input
+        output_dict[OUTPUT] = output
+        return output_dict

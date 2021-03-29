@@ -55,40 +55,11 @@ class ImagesDataset(torch.utils.data.Dataset):
         return (len(self.input_list))
 
     def augment_one_img(self, img, seed):
-        height = img.shape[0]
-        width = img.shape[1]
-
-        # ─── APPLY CUSTOM TRANSFORM ──────────────────────────────────────
-        cropFactor = self.opt[AUGMENTATION][CROP]
-        resizeFactor = self.opt[AUGMENTATION][RESIZE]
-
-        # crop the image:
-        if cropFactor:
-            random.seed(seed)
-            assert type(cropFactor) == int
-
-            rnd_h = random.randint(0, max(0, height - cropFactor))
-            rnd_w = random.randint(0, max(0, width - cropFactor))
-            img = img[rnd_h:rnd_h + cropFactor,
-                  rnd_w:rnd_w + cropFactor, :]
-
-        # resize the image:
-        elif resizeFactor:
-            # accept int and float:
-            assert type(resizeFactor + 0.1) == float
-
-            img = cv2.resize(img, (int(width / resizeFactor),
-                                   int(height / resizeFactor)))
-
         img = img.astype(np.uint8)
-
-        # ─── APPLY PYTORCH TRANSFORM: ────────────────────────────────────
         random.seed(seed)
+        torch.manual_seed(seed)
         if self.transform:
             img = self.transform(img)
-
-        # console.log('', log_locals=True)
-
         return img
 
     def __getitem__(self, idx):
@@ -101,8 +72,11 @@ class ImagesDataset(torch.utils.data.Dataset):
         :rtype: dictionary
 
         """
-        res_item = {NAME: self.input_list[idx]}
+        res_item = {FNAME: self.input_list[idx]}
+
+        # different seed for each item:
         seed = random.randint(0, 100000)
+
         input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
         input_img = self.augment_one_img(input_img, seed)
         res_item[INPUT_IMG] = input_img
@@ -111,4 +85,6 @@ class ImagesDataset(torch.utils.data.Dataset):
             output_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
             output_img = self.augment_one_img(output_img, seed)
             res_item[OUTPUT_IMG] = output_img
+
+        # import ipdb; ipdb.set_trace()
         return res_item

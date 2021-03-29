@@ -21,25 +21,39 @@ class BaseModel(pl.core.LightningModule):
         self.epoch = 0
         self.opt = opt
 
+        self.logger_image_buffer = []
+
     def get_progress_bar_dict(self):
         items = super().get_progress_bar_dict()
         items.pop("v_num", None)
         # items.pop("loss", None)
         return items
 
-    def log_img(self, batch, img_dirpath, logname, fname):
-        if not osp.exists(img_dirpath):
-            console.log(f'Image dir path "{img_dirpath}" not exists. Created.')
-            os.makedirs(img_dirpath)
-        imgpath = osp.join(img_dirpath, fname)
+    def log_img(self, batch, dirpath, fname):
+        if not osp.exists(dirpath):
+            console.log(f'Image dir path "{dirpath}" not exists. Created.')
+            os.makedirs(dirpath)
+
+        imgpath = osp.join(dirpath, fname)
         img = util.saveTensorAsImg(batch, imgpath)
 
-        assert self.logger
-        # comet:
-        # self.logger.experiment.log_image(img, overwrite=False, name=f'{logname}_{fname}')
+    def add_img_to_logger_buffer(self, batch, suffix, fname):
+        if len(batch.shape) == 3:
+            # input is not a batch, but a single image.
+            batch = batch.unsqueeze(0)
 
-        # wandb:
-        self.logger.experiment.log({'Images': [wandb.Image(img, caption=f'{logname}_{fname}')]})
+        self.logger_image_buffer.append(
+            wandb.Image(batch[0], caption=f'{suffix}_{fname}')
+        )
+
+    def commit_logger_buffer(self):
+        assert self.logger
+        self.logger.experiment.log({
+            'Images': self.logger_image_buffer
+        })
+
+        # clear buffer after each commit for the next commit
+        self.logger_image_buffer.clear()
 
     def training_epoch_end(self, outputs):
         self.epoch += 1

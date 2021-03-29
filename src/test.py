@@ -4,11 +4,12 @@ import logging
 import hydra
 import torch
 import torchvision
-from data import ImagesDataset
+from data_aug import parseAugmentation
+from dataset import ImagesDataset
 from globalenv import *
 from model.model_zoo import MODEL_ZOO
 from pytorch_lightning import Trainer
-from util import checkConfig, configLogging, parseAugmentation
+from util import checkConfig, configLogging
 
 
 @hydra.main(config_path='config', config_name="config")
