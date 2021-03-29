@@ -1,0 +1,4 @@
+# @package _group_
+
+GT: /data1/why/data/fulldata-0329/train/gt/*
+input: /data1/why/data/fulldata-0329/train/input/*
