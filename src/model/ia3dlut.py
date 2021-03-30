@@ -18,7 +18,7 @@ from .basemodel import BaseModel
 
 class IA3DLUTLitModel(BaseModel):
     def __init__(self, opt):
-        super().__init__(opt)
+        super().__init__(opt, [TRAIN, VALID])
         self.luts = torch.nn.ModuleList([
             Generator3DLUT_identity(opt),
             Generator3DLUT_zero(),
@@ -113,10 +113,29 @@ class IA3DLUTLitModel(BaseModel):
         _, combine_A = self.trilinear(final_LUT, img)
         return combine_A, weights_norm
 
+    def log_local_and_wandb_images(self, mode, batch_idx, fname, input_batch, output_batch, gt_batch):
+        if batch_idx % self.opt[LOG_EVERY] == 0:
+            fname = osp.basename(fname) + f'_epoch{self.current_epoch}_iter{batch_idx}.png'
+            if mode == VALID:
+                self.save_img(output_batch, self.valid_img_dirpath, fname)
+            elif mode == TRAIN:
+                self.save_img(output_batch, self.train_img_dirpath, fname)
+
+            self.logger_buffer_add_img(mode, input_batch, mode, INPUT, fname)
+            self.logger_buffer_add_img(mode, output_batch, mode, OUTPUT, fname)
+            self.logger_buffer_add_img(mode, gt_batch, mode, GT, fname)
+            self.commit_logger_buffer(mode)
+
     def training_step(self, batch, batch_idx):
+        if not self.MODEL_WATCHED:
+            self.logger.watch(self.luts)
+            self.logger.watch(self.cnn)
+
+            self.MODEL_WATCHED = True
+
         # get output
-        input_batch, gt_batch = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                Variable(batch[OUTPUT_IMG], requires_grad=False)
+        input_batch, gt_batch = Variable(batch[INPUT], requires_grad=False), \
+                                Variable(batch[GT], requires_grad=False)
         output_batch, self.train_metrics[WEIGHTS_NORM] = self.train_forward_one_batch(input_batch)
 
         # calculate loss:
@@ -143,24 +162,18 @@ class IA3DLUTLitModel(BaseModel):
         for x, y in self.train_metrics.items():
             self.log(x, y, prog_bar=True)
 
+        self.log_local_and_wandb_images(TRAIN, self.global_step, batch[FNAME][0], input_batch, output_batch, gt_batch)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         # get output
-        input_batch, gt_batch, fname = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                       Variable(batch[OUTPUT_IMG], requires_grad=False), batch[FNAME]
-        if type(fname) == list:
-            fname = fname[0]
+        input_batch, gt_batch = Variable(batch[INPUT], requires_grad=False), \
+                                Variable(batch[GT], requires_grad=False)
         output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
 
         # save valid images
-        if batch_idx % self.opt[LOG_EVERY] == 0:
-            fname = osp.basename(fname) + f'_epoch{self.epoch}_iter{batch_idx}.png'
-            self.log_img(output_batch, self.valid_img_dirpath, fname)
-            self.add_img_to_logger_buffer(output_batch, OUTPUT_IMG, fname)
-            self.add_img_to_logger_buffer(input_batch, INPUT_IMG, fname)
-            self.add_img_to_logger_buffer(gt_batch, 'GT', fname)
-            self.commit_logger_buffer()
+        self.log_local_and_wandb_images(VALID, self.global_step, batch[FNAME][0], input_batch, output_batch, gt_batch)
 
         # get psnr
         self.valid_metrics[PSNR] = util.ImageProcessing.compute_psnr(
@@ -180,20 +193,19 @@ class IA3DLUTLitModel(BaseModel):
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], batch[FNAME]
+        input_batch, fnames = batch[INPUT], batch[FNAME]
         output, _ = self.eval_forward_one_img(input_batch)
 
-        # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
-        if type(fname) == list:
-            fname = fname[0]
+        if type(fnames) == list:
+            fname = fnames[0]
         util.saveTensorAsImg(output, osp.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
 
         # test with GT:
-        if OUTPUT_IMG in batch:
+        if GT in batch:
             # calculate metrics:
             psnr = util.ImageProcessing.compute_psnr(
                 util.cuda_tensor_to_ndarray(output),
-                util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG]), 1.0
+                util.cuda_tensor_to_ndarray(batch[GT]), 1.0
             )
             self.log(PSNR, psnr, prog_bar=True)
         return output

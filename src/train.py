@@ -25,6 +25,19 @@ def main(config):
     # config = init_config(config)
     opt = checkConfig(config, TRAIN)
     # tab_complete(opt)
+
+    if opt[DEBUG]:
+        debug_config = {
+            DATALOADER_NUM_WORKER: 0,
+            EXPNAME: DEBUG,
+            LOG_EVERY: 1,
+            NUM_EPOCH: 2
+        }
+        opt.update(debug_config)
+        console.log('[red]>>>> WARN: You are in debug mode, update configs. <<<<[/red]')
+        console.log(debug_config)
+        console.log('[red]>>>> WARN: You are in debug mode, update configs. <<<<[/red]')
+
     console.log('Running config:', opt, log_locals=False)
     opt[LOG_DIRPATH], opt[IMG_DIRPATH] = configLogging(TRAIN, opt)
     pl_logger = logging.getLogger("lightning")
@@ -81,7 +94,8 @@ def main(config):
 
     mylogger = WandbLogger(
         name=opt[EXPNAME],
-        project='vielab'
+        project='vielab',
+        notes=None if not opt[COMMENT] else opt[COMMENT]
     )
 
     # init trainer:

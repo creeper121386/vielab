@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import random
 from glob import glob
 
@@ -11,7 +12,7 @@ from globalenv import *
 class ImagesDataset(torch.utils.data.Dataset):
     def load_from_glob_list(self, globs):
         if type(globs) == str:
-            return glob(globs)
+            return sorted(glob(globs))
         elif type(globs) == list:
             res = []
             for g in globs:
@@ -34,8 +35,8 @@ class ImagesDataset(torch.utils.data.Dataset):
         self.data_dict = data_dict
         self.opt = opt
 
-        gt_globs = opt[ds_type][GT_DIRPATH]
-        input_globs = opt[ds_type][INPUT_DIRPATH]
+        gt_globs = opt[ds_type][GT]
+        input_globs = opt[ds_type][INPUT]
         self.have_gt = True if gt_globs else False
 
         console.log(f'[[{ds_type}]] GT Directory path: [yellow]{gt_globs}[/yellow]')
@@ -49,7 +50,7 @@ class ImagesDataset(torch.utils.data.Dataset):
             self.gt_list = self.load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
-        console.log('Dataset length: ', len(self.input_list))
+        console.log(f'[[{ds_type}]]Dataset length: {self.__len__()}, Batch num: {self.__len__() // opt[BATCHSIZE]}')
 
     def __len__(self):
         return (len(self.input_list))
@@ -61,6 +62,12 @@ class ImagesDataset(torch.utils.data.Dataset):
         if self.transform:
             img = self.transform(img)
         return img
+
+    def debug_save_item(self, input, gt):
+        import util
+        home = os.environ['HOME']
+        util.saveTensorAsImg(input, os.path.join(home, 'tmp/input.png'))
+        util.saveTensorAsImg(gt, os.path.join(home, 'tmp/gt.png'))
 
     def __getitem__(self, idx):
         """Returns a pair of images with the given identifier. This is lazy loading
@@ -74,17 +81,17 @@ class ImagesDataset(torch.utils.data.Dataset):
         """
         res_item = {FNAME: self.input_list[idx]}
 
-        # different seed for each item:
+        # different seed for each item, but same for GT and INPUT in one item:
         seed = random.randint(0, 100000)
 
         input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
         input_img = self.augment_one_img(input_img, seed)
-        res_item[INPUT_IMG] = input_img
+        res_item[INPUT] = input_img
 
         if self.have_gt:
-            output_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
-            output_img = self.augment_one_img(output_img, seed)
-            res_item[OUTPUT_IMG] = output_img
+            gt_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
+            gt_img = self.augment_one_img(gt_img, seed)
+            res_item[GT] = gt_img
 
-        # import ipdb; ipdb.set_trace()
+        # ipdb.set_trace()
         return res_item

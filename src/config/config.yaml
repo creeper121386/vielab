@@ -1,18 +1,21 @@
 # general config for all models:
-name: default_name    # name of experiment
+name: default_name        # name of experiment
+comment: false            # comment message of this experiment
 debug: false
 num_epoch: 1000
-gpu: 1    # number of gpus to train on (int) or which GPUs to train on (list or str) applied
-valid_every: 10   # validate every N epochs
-log_every: 100    # log your message, curve or images every N epochs or iteration
+gpu: 1                    # number of gpus to train on (int) or which GPUs to train on (list or str) applied
+valid_every: 10           # validate every N epochs
+log_every: 100            # log your message, curve or images every N epochs or iteration
 dataloader_num_worker: 4
 batchsize: 4
 lr: 1e-4
-#save_model_every: 1
-checkpoint_path: false # false for do not load runtime. Necessary when testing.
-#valid_ds: false  # only for training. value selected from group `ds`. i.e. valid_ds=full_data
+checkpoint_path: false    # false for do not load runtime. Necessary when testing.
 valid_batchsize: 1
-checkpoint_monitor: loss
+checkpoint_monitor: loss  # which metrics to monitor for saving the best model.
+
+# removed:
+#save_model_every: 1
+#valid_ds: false  # only for training. value selected from group `ds`. i.e. valid_ds=full_data
 
 # define config groups:
 defaults:

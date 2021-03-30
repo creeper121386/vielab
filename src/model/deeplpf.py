@@ -18,7 +18,7 @@ from .basic_loss import LTVloss
 
 class DeepLpfLitModel(BaseModel):
     def __init__(self, opt):
-        super().__init__(opt)
+        super().__init__(opt, [TRAIN])
         if opt[VALID_DATA][INPUT]:
             console.log('[yellow]WARNING: valid mode is not supported in DeepLPF, ignore valid_dataloader.[/yellow]')
 
@@ -48,12 +48,15 @@ class DeepLpfLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        input_batch, gt_batch, category = Variable(batch[INPUT_IMG], requires_grad=False), \
-                                          Variable(batch[OUTPUT_IMG],
-                                                   requires_grad=False), batch[FNAME]
+        if not self.MODEL_WATCHED:
+            self.logger.watch(self.net)
+            self.MODEL_WATCHED = True
+
+        input_batch, gt_batch, fnames = Variable(batch[INPUT], requires_grad=False), \
+                                        Variable(batch[GT],
+                                                 requires_grad=False), batch[FNAME]
         output_dict = self.net(input_batch)
-        output = torch.clamp(
-            output_dict[OUTPUT], 0.0, 1.0)
+        output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
         loss = self.criterion(output_dict, gt_batch)
         this_losses = self.criterion.get_current_loss()
@@ -74,26 +77,29 @@ class DeepLpfLitModel(BaseModel):
         # self.logger.experiment.log_metrics(self.losses)
 
         # save images
-        if batch_idx % self.opt[LOG_EVERY] == 0:
-            fname = f'epoch{self.epoch}_iter{batch_idx}.png'
-            self.add_img_to_logger_buffer(output, OUTPUT_IMG, fname)
-            self.log_img(output, self.opt[IMG_DIRPATH], fname)
+        # note: self.global_step increases in training_step only, not effected by validation.
+        if self.global_step % self.opt[LOG_EVERY] == 0:
+            # TODO: 解决dlpf本地没有存图片的问题
+            fname = f'epoch{self.current_epoch}_iter{self.global_step}_{fnames[0]}.png'
+            self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
+            self.logger_buffer_add_img(TRAIN, output, TRAIN, OUTPUT, fname)
+            self.logger_buffer_add_img(TRAIN, gt_batch, TRAIN, GT, fname)
+
+            self.save_img(output, self.opt[IMG_DIRPATH], fname)
 
             if PREDICT_ILLUMINATION in output_dict:
-                self.log_img(output_dict[PREDICT_ILLUMINATION], self.illumination_dirpath, fname)
-                self.add_img_to_logger_buffer(output_dict[PREDICT_ILLUMINATION], PREDICT_ILLUMINATION, fname)
+                self.save_img(output_dict[PREDICT_ILLUMINATION], self.illumination_dirpath, fname)
+                self.logger_buffer_add_img(TRAIN, output_dict[PREDICT_ILLUMINATION], TRAIN, PREDICT_ILLUMINATION, fname)
 
-            self.commit_logger_buffer()
+            self.commit_logger_buffer(TRAIN)
         return loss
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT_IMG], batch[FNAME]
+        input_batch, fname = batch[INPUT], batch[FNAME][0]
         output_dict = self.net(input_batch)
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
-        # TODO: 这里的fname是一个单元素list.....为啥啊 太奇怪了
-        fname = fname[0]
         util.saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
         if PREDICT_ILLUMINATION in output_dict:
             util.saveTensorAsImg(
@@ -102,10 +108,10 @@ class DeepLpfLitModel(BaseModel):
             )
 
         # test with GT:
-        if OUTPUT_IMG in batch:
+        if GT in batch:
             # calculate metrics:
             output_ = util.cuda_tensor_to_ndarray(output)
-            y_ = util.cuda_tensor_to_ndarray(batch[OUTPUT_IMG])
+            y_ = util.cuda_tensor_to_ndarray(batch[GT])
             psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
             ssim = util.ImageProcessing.compute_ssim(output_, y_)
             self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True)
@@ -332,12 +338,12 @@ class DeepLPFLoss(nn.Module):
             if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
                 # apply ltv loss on illumination:
                 assert PREDICT_ILLUMINATION in outputDict
-                img_key = PREDICT_ILLUMINATION
+                smoothed_map_name = PREDICT_ILLUMINATION
             else:
-                img_key = OUTPUT
+                smoothed_map_name = OUTPUT
 
             self.losses[LTV_LOSS] = self.ltv(
-                outputDict[INPUT], outputDict[img_key], ltvWeight)
+                outputDict[INPUT], outputDict[smoothed_map_name], ltvWeight)
             deeplpf_loss += self.losses[LTV_LOSS]
 
         # ─── COS SIMILARITY ──────────────────────────────────────────────

@@ -22,14 +22,13 @@ LOG_FILENAME = 'run.log'
 LOG_TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT = 'input'
 OUTPUT = 'output'
+GT = 'GT'
 STRING_FALSE = 'False'
 SKIP_FLAG = 'q'
 DEFAULTS = 'defaults'
 HYDRA = 'hydra'
 
-# fields in dataset.py (result of dataset[i])s
-INPUT_IMG = 'input_img'
-OUTPUT_IMG = 'output_img'
+# fields in dataset.py (result of dataset[i])
 FNAME = 'fname'
 
 # config.yml
@@ -38,8 +37,6 @@ CHECKPOINT_PATH = 'checkpoint_path'
 LOG_DIRPATH = 'log_dirpath'
 IMG_DIRPATH = 'img_dirpath'
 DATALOADER_NUM_WORKER = 'dataloader_num_worker'
-INPUT_DIRPATH = 'input'
-GT_DIRPATH = 'GT'
 VALID_EVERY = 'valid_every'
 AUGMENTATION = 'aug'
 NUM_EPOCH = 'num_epoch'
@@ -55,6 +52,7 @@ BATCHSIZE = 'batchsize'
 VALID_BATCHSIZE = 'valid_batchsize'
 LR = 'lr'
 CHECKPOINT_MONITOR = 'checkpoint_monitor'
+COMMENT = 'comment'
 
 # config.loss
 LTV_LOSS = 'ltv'

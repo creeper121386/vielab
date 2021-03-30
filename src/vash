@@ -40,7 +40,7 @@ class VashCompleter(Completer):
         self.args_values = {x: get_field_words(x) for x in self.groups}
         self.args_names.extend(self.groups)
         self.illegal_characters = ('+', ' ', '=')
-        self.path_args = [f'{DATA}.{GT_DIRPATH}', f'{DATA}.{INPUT_DIRPATH}', f'{RUNTIME}.{LUT_FILEPATH}',
+        self.path_args = [f'{DATA}.{GT}', f'{DATA}.{INPUT}', f'{RUNTIME}.{LUT_FILEPATH}',
                           CHECKPOINT_PATH]
 
     def get_path(self, text):

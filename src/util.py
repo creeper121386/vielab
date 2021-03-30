@@ -85,6 +85,11 @@ from torch.autograd import Variable
 #
 #     return opt
 
+def mkdir(dirpath):
+    if not osp.exists(dirpath):
+        os.makedirs(dirpath)
+
+
 def server_chan_send(title, msg):
     if 'SEND_KEY' not in os.environ:
         console.log('No server chan send key found. To login server chan, visit: https://sct.ftqq.com/sendkey')
@@ -210,22 +215,30 @@ def configLogging(mode, opt):
     return log_dirpath, img_dirpath
 
 
-def saveTensorAsImg(output, path, resize=False):
-    # save the first image of A BATCH
-    if len(output.shape) == 3:
-        output = output.unsqueeze(0)
+def saveTensorAsImg(output, path, downsample_factor=False):
+    # save image of A BATCH or a SINGLE IMAGE.
+    # input dtype: must be Tensor
+    output = output.squeeze(0)
 
+    if len(output.shape) == 4:
+        # a batch
+        res = []
+        for i in range(len(output)):
+            res.append(saveTensorAsImg(output[i], f'{path}-{i}.png', downsample_factor))
+        return res
+
+    # a single image
+    assert len(output.shape) == 3
     outImg = cuda_tensor_to_ndarray(
-        output[0].permute(1, 2, 0)
+        output.permute(1, 2, 0)
     ) * 255.0
     outImg = outImg[:, :, [2, 1, 0]].astype(np.uint8)
 
-    if resize:
-        assert type(resize + 0.1) == float
-
+    if downsample_factor:
+        assert type(downsample_factor + 0.1) == float
         h = outImg.shape[0]
         w = outImg.shape[1]
-        outImg = cv2.resize(outImg, (int(w / resize), int(h / resize))).astype(np.uint8)
+        outImg = cv2.resize(outImg, (int(w / downsample_factor), int(h / downsample_factor))).astype(np.uint8)
 
     cv2.imwrite(path, outImg)
     return outImg
