@@ -5,7 +5,6 @@ import numpy as np
 import torchvision.transforms.functional as F
 from globalenv import *
 from torchvision import transforms
-from torchvision.transforms import Resize
 
 
 class RandomLightnessAdjustment:
@@ -37,33 +36,45 @@ class RandomContrastAdjustment:
 
 
 class Downsample:
-    def __init__(self, size=None):
-        self.size = size
-        if isinstance(self.size, Iterable):
-            assert len(size) == 2
-            self.trans = Resize([size[1], size[0]])
+    def __init__(self, downsample_factor=None):
+        self.downsample_factor = downsample_factor
+
+        if isinstance(self.downsample_factor, Iterable):
+            assert len(downsample_factor) == 2
 
     def __call__(self, img):
         '''
         img: passed by the previous transforms. PIL iamge or np.ndarray
         '''
-        height = img.size[0]
-        width = img.size[1]
-        if isinstance(self.size, Iterable):
-            img = self.trans(img)
-        elif type(self.size + 0.1) == float:
+        if isinstance(self.downsample_factor, Iterable):
+            if -1 in self.downsample_factor:
+                w_scale = img.size[0] / self.downsample_factor[0]
+                h_scale = img.size[1] / self.downsample_factor[1]
+
+                # choose the correct one
+                scale = max(w_scale, h_scale)
+                new_size = [
+                    int(img.size[0] / scale),
+                    int(img.size[1] / scale)
+                ]
+            else:
+                new_size = self.downsample_factor
+
+        elif type(self.downsample_factor + 0.1) == float:
             # PIL.Image.resize accepts [H, W];
             # while cv2.resize and torchvision.transforms.Resize accepts [W, H]
-            img = img.resize([
-                int(height / self.size),
-                int(width / self.size)
-            ])
+            new_size = [
+                int(img.size[0] / self.downsample_factor),
+                int(img.size[1] / self.downsample_factor)
+            ]
         else:
-            raise RuntimeError(f'ERR: Wrong config aug.downsample: {self.size}')
+            raise RuntimeError(f'ERR: Wrong config aug.downsample: {self.downsample_factor}')
+
+        img = img.resize(new_size)
         return img
 
     def __repr__(self):
-        return self.__class__.__name__ + f'({self.size})'
+        return self.__class__.__name__ + f'({self.downsample_factor})'
 
 
 def parseAugmentation(opt):

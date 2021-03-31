@@ -116,26 +116,26 @@ class VashCompleter(Completer):
         # document is the whole string entered by user.
         # string = document._text
         string = document.text_before_cursor
-        word_before_cursor = (string
+        unit_before_cursor = (string
             .split('=')[-1]
             .split('.')[-1]
             .split(' ')[-1])
-        position = -len(word_before_cursor)
+        position = -len(unit_before_cursor)
 
         last_word = string.split(' ')[-1]
         if '=' in last_word:
             # last word: value1=inputed_arg_value
-            # complete a args VALUE
+            # complete args VALUE
             arg = last_word.split('=')[0]  # name of argument
             inputed_arg_value = last_word.split('=')[-1]  # half-inputed value by user
 
-            # complete path
+            # complete path if needed
             if arg in self.path_args:
                 prefix = os.path.basename(inputed_arg_value)
                 for x in self.get_path(inputed_arg_value):
                     yield Completion(x, start_position=-len(prefix))
 
-            # complete single-level arg value
+            # complete SINGLE-LEVEL arg value
             if '.' not in arg:
                 if arg in self.args_values:
                     # complete group arg value
@@ -143,7 +143,7 @@ class VashCompleter(Completer):
                         if x.startswith(inputed_arg_value):
                             yield Completion(x, start_position=position)
             else:
-                # complete a multi-level dict node value
+                # complete a MULTI-LEVEL dict node value
                 # the value is not a selected-type, skip completion.
                 pass
 
@@ -158,7 +158,7 @@ class VashCompleter(Completer):
                         yield Completion(x, start_position=position)
 
         else:
-            # complete a arg multi-level arg name
+            # complete a arg multi-level arg NAME
             # last word: value1.value2.value3
             nodes = last_word.split('.')
             value1 = nodes[0]
@@ -184,7 +184,8 @@ class VashCompleter(Completer):
                 if type(current_dict) == dict:
                     # only complete key
                     for x in current_dict.keys():
-                        yield Completion(x, start_position=position)
+                        if unit_before_cursor in x:
+                            yield Completion(x, start_position=position)
 
             elif type(sub_dict) == list:
                 # print(sub_dict)
@@ -199,7 +200,8 @@ class VashCompleter(Completer):
                             yields.add(x)
 
                 for x in yields:
-                    yield Completion(x, start_position=position)
+                    if unit_before_cursor in x:
+                        yield Completion(x, start_position=position)
 
 
 def bottom_toolbar():

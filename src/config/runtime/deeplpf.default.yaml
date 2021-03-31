@@ -6,5 +6,5 @@ loss:
   ltv: false
   cos: 0.1
 filters:
-  g: true   # if use_gr2aduated_filter
-  e: true   # if use_elliptical_filter
+  g: true   # true if use_gr2aduated_filter
+  e: true   # true if use_elliptical_filter

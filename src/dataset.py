@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import random
 from glob import glob
 
@@ -65,9 +64,9 @@ class ImagesDataset(torch.utils.data.Dataset):
 
     def debug_save_item(self, input, gt):
         import util
-        home = os.environ['HOME']
-        util.saveTensorAsImg(input, os.path.join(home, 'tmp/input.png'))
-        util.saveTensorAsImg(gt, os.path.join(home, 'tmp/gt.png'))
+        # home = os.environ['HOME']
+        util.saveTensorAsImg(input, 'i.png')
+        util.saveTensorAsImg(gt, 'o.png')
 
     def __getitem__(self, idx):
         """Returns a pair of images with the given identifier. This is lazy loading
@@ -93,5 +92,4 @@ class ImagesDataset(torch.utils.data.Dataset):
             gt_img = self.augment_one_img(gt_img, seed)
             res_item[GT] = gt_img
 
-        # ipdb.set_trace()
         return res_item

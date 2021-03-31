@@ -83,15 +83,6 @@ def main(config):
     )
 
     # trainer logger:
-    # comet_ml.config.DEBUG = False
-    # comet_logger = CometLogger(
-    #     api_key=os.environ.get('COMET_API_KEY'),
-    #     workspace=os.environ.get('COMET_WORKSPACE'),  # Optional
-    #     # save_dir='../',  # used in local mode
-    #     project_name='vielab',  # Optional
-    #     experiment_name=opt[EXPNAME]  # Optional
-    # )
-
     mylogger = WandbLogger(
         name=opt[EXPNAME],
         project='vielab',

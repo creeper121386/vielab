@@ -12,7 +12,7 @@ crop: 256
 #  - 0.x for upsample;
 #  - [h, w] for specific size;
 #  - false for not resizing.
-downsample: [ 1920, 1080 ]
+downsample: [ 1920, -1 ]
 
 h-flip: true
 v-flip: true

@@ -43,8 +43,7 @@ class DeepLpfLitModel(BaseModel):
         self.net.train()
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters(
-        )), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
+        optimizer = optim.Adam(self.parameters(), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
         return optimizer
 
     def training_step(self, batch, batch_idx):
@@ -59,8 +58,14 @@ class DeepLpfLitModel(BaseModel):
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
         loss = self.criterion(output_dict, gt_batch)
-        this_losses = self.criterion.get_current_loss()
 
+        illumination = None if not PREDICT_ILLUMINATION else output_dict[PREDICT_ILLUMINATION]
+        self.training_step_logging(input_batch, gt_batch, output, fnames, illumination)
+        return loss
+
+    def training_step_logging(self, input_batch, gt_batch, output, fnames, illumination):
+        # for logging loss:
+        this_losses = self.criterion.get_current_loss()
         for k in self.losses:
             if this_losses[k] is not None:
                 # TODO: 多卡训练时，这里报错两个tensor分别在两块卡上：
@@ -68,18 +73,17 @@ class DeepLpfLitModel(BaseModel):
             else:
                 self.losses[k] = STRING_FALSE
 
+        # log to the terminal and logger
         for x, y in self.losses.items():
             if y != STRING_FALSE:
                 # `self.log_dict` will cause key error.
-                self.log(x, y, prog_bar=True)
-
-        # log to logger
-        # self.logger.experiment.log_metrics(self.losses)
+                self.log(x, y, prog_bar=True, on_step=True, on_epoch=False)
 
         # save images
         # note: self.global_step increases in training_step only, not effected by validation.
         if self.global_step % self.opt[LOG_EVERY] == 0:
             # TODO: 解决dlpf本地没有存图片的问题
+            # TODO: 解决dlpf训练会崩的问题
             fname = f'epoch{self.current_epoch}_iter{self.global_step}_{fnames[0]}.png'
             self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
             self.logger_buffer_add_img(TRAIN, output, TRAIN, OUTPUT, fname)
@@ -87,12 +91,12 @@ class DeepLpfLitModel(BaseModel):
 
             self.save_img(output, self.opt[IMG_DIRPATH], fname)
 
-            if PREDICT_ILLUMINATION in output_dict:
-                self.save_img(output_dict[PREDICT_ILLUMINATION], self.illumination_dirpath, fname)
-                self.logger_buffer_add_img(TRAIN, output_dict[PREDICT_ILLUMINATION], TRAIN, PREDICT_ILLUMINATION, fname)
+            # save illumination map
+            if illumination is not None:
+                self.logger_buffer_add_img(TRAIN, illumination, TRAIN, PREDICT_ILLUMINATION, fname)
+                self.save_img(illumination, self.illumination_dirpath, fname)
 
             self.commit_logger_buffer(TRAIN)
-        return loss
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
