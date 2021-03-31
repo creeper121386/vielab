@@ -59,7 +59,7 @@ class DeepLpfLitModel(BaseModel):
 
         loss = self.criterion(output_dict, gt_batch)
 
-        illumination = None if not PREDICT_ILLUMINATION else output_dict[PREDICT_ILLUMINATION]
+        illumination = None if not self.opt[RUNTIME][PREDICT_ILLUMINATION] else output_dict[PREDICT_ILLUMINATION]
         self.training_step_logging(input_batch, gt_batch, output, fnames, illumination)
         return loss
 
