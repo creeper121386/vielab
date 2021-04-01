@@ -49,7 +49,7 @@ class ImagesDataset(torch.utils.data.Dataset):
             self.gt_list = self.load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
-        console.log(f'[[{ds_type}]]Dataset length: {self.__len__()}, Batch num: {self.__len__() // opt[BATCHSIZE]}')
+        console.log(f'[[{ds_type}]] Dataset length: {self.__len__()}, Batch num: {self.__len__() // opt[BATCHSIZE]}')
 
     def __len__(self):
         return (len(self.input_list))
@@ -78,7 +78,7 @@ class ImagesDataset(torch.utils.data.Dataset):
         :rtype: dictionary
 
         """
-        res_item = {FNAME: self.input_list[idx]}
+        res_item = {FPATH: self.input_list[idx]}
 
         # different seed for each item, but same for GT and INPUT in one item:
         seed = random.randint(0, 100000)
