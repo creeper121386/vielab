@@ -1,0 +1,5 @@
+# @package _group_
+# 没有任何实际含义，仅做测试用
+
+GT: /Users/why/dev/dataset/full_data/valid/output/*
+input: /Users/why/dev/dataset/full_data/valid/input/*

@@ -36,8 +36,8 @@ class DeepLpfLitModel(BaseModel):
             SSIM: 0
         }
         self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
-        if opt[RUNTIME][PREDICT_ILLUMINATION] and not os.path.exists(self.illumination_dirpath):
-            os.makedirs(self.illumination_dirpath)
+        if opt[RUNTIME][PREDICT_ILLUMINATION]:
+            uitl.mkdir(self.illumination_dirpath)
 
         self.criterion = DeepLPFLoss(opt, ssim_window_size=5)
         self.net.train()
@@ -51,19 +51,23 @@ class DeepLpfLitModel(BaseModel):
             self.logger.watch(self.net)
             self.MODEL_WATCHED = True
 
-        input_batch, gt_batch, fnames = Variable(batch[INPUT], requires_grad=False), \
+        input_batch, gt_batch, fpaths = Variable(batch[INPUT], requires_grad=False), \
                                         Variable(batch[GT],
-                                                 requires_grad=False), batch[FNAME]
+                                                 requires_grad=False), batch[FPATH]
         output_dict = self.net(input_batch)
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
         loss = self.criterion(output_dict, gt_batch)
 
         illumination = None if not self.opt[RUNTIME][PREDICT_ILLUMINATION] else output_dict[PREDICT_ILLUMINATION]
-        self.training_step_logging(input_batch, gt_batch, output, fnames, illumination)
+        self.training_step_logging(input_batch, gt_batch, output, fpaths, illumination)
         return loss
 
-    def training_step_logging(self, input_batch, gt_batch, output, fnames, illumination):
+    def training_step_logging(self, input_batch, gt_batch, output, fpaths, illumination):
+        '''
+        ! logging AVERAGE value of self.losses of current step.
+        '''
+
         # for logging loss:
         this_losses = self.criterion.get_current_loss()
         for k in self.losses:
@@ -77,30 +81,30 @@ class DeepLpfLitModel(BaseModel):
         for x, y in self.losses.items():
             if y != STRING_FALSE:
                 # `self.log_dict` will cause key error.
-                self.log(x, y, prog_bar=True, on_step=True, on_epoch=False)
+                self.log(x, y / self.global_step, prog_bar=True, on_step=True, on_epoch=False)
 
         # save images
         # note: self.global_step increases in training_step only, not effected by validation.
         if self.global_step % self.opt[LOG_EVERY] == 0:
-            # TODO: 解决dlpf本地没有存图片的问题
-            # TODO: 解决dlpf训练会崩的问题
-            fname = f'epoch{self.current_epoch}_iter{self.global_step}_{fnames[0]}.png'
+            # TODO: 解决dlpf训练会崩的问题（猜测是crop size或batchsize的原因）
+            # TODO: 添加unet
+            fname = f'epoch{self.current_epoch}_iter{self.global_step}_{osp.basename(fpaths[0])}.png'
             self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
             self.logger_buffer_add_img(TRAIN, output, TRAIN, OUTPUT, fname)
             self.logger_buffer_add_img(TRAIN, gt_batch, TRAIN, GT, fname)
 
-            self.save_img(output, self.opt[IMG_DIRPATH], fname)
+            self.save_one_img_of_batch(output, self.opt[IMG_DIRPATH], fname)
 
             # save illumination map
             if illumination is not None:
                 self.logger_buffer_add_img(TRAIN, illumination, TRAIN, PREDICT_ILLUMINATION, fname)
-                self.save_img(illumination, self.illumination_dirpath, fname)
+                self.save_one_img_of_batch(illumination, self.illumination_dirpath, fname)
 
             self.commit_logger_buffer(TRAIN)
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fname = batch[INPUT], batch[FNAME][0]
+        input_batch, fname = batch[INPUT], batch[FPATH][0]
         output_dict = self.net(input_batch)
         output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
 
@@ -285,27 +289,27 @@ class DeepLPFLoss(nn.Module):
                 * (mssim[levels - 1] ** weights[levels - 1]))
         return prod
 
-    def forward(self, outputDict, target_img_batch):
+    def forward(self, output_dict, gt_batch):
         """Forward function for the DeepLPF loss
 
-        :param outputDict: output dict with key OUTPUT and 'illumination'(optional) for network
-        :param target_img_batch: Tensor of shape BxCxWxH
+        :param output_dict: output dict with key OUTPUT and 'illumination'(optional) for network
+        :param gt_batch: Tensor of shape BxCxWxH
         :returns: value of loss function
         :rtype: float
 
         """
-        assert OUTPUT in outputDict and INPUT in outputDict
+        assert OUTPUT in output_dict and INPUT in output_dict
 
-        predicted_img_batch = outputDict[OUTPUT]
-        num_images = target_img_batch.shape[0]
+        predicted_img_batch = output_dict[OUTPUT]
+        num_images = gt_batch.shape[0]
 
-        assert predicted_img_batch.type() == target_img_batch.type()
+        assert predicted_img_batch.type() == gt_batch.type()
 
         ssim_loss_value = torch.zeros(1, 1).type_as(predicted_img_batch)
         l1_loss_value = torch.zeros(1, 1).type_as(predicted_img_batch)
 
         for i in range(0, num_images):
-            target_img = target_img_batch[i, :, :, :].type_as(predicted_img_batch)
+            target_img = gt_batch[i, :, :, :].type_as(predicted_img_batch)
             predicted_img = predicted_img_batch[i, :, :, :].type_as(predicted_img_batch)
 
             predicted_img_lab = util.ImageProcessing.rgb_to_lab(
@@ -341,13 +345,13 @@ class DeepLPFLoss(nn.Module):
 
             if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
                 # apply ltv loss on illumination:
-                assert PREDICT_ILLUMINATION in outputDict
+                assert PREDICT_ILLUMINATION in output_dict
                 smoothed_map_name = PREDICT_ILLUMINATION
             else:
                 smoothed_map_name = OUTPUT
 
             self.losses[LTV_LOSS] = self.ltv(
-                outputDict[INPUT], outputDict[smoothed_map_name], ltvWeight)
+                output_dict[INPUT], output_dict[smoothed_map_name], ltvWeight)
             deeplpf_loss += self.losses[LTV_LOSS]
 
         # ─── COS SIMILARITY ──────────────────────────────────────────────
@@ -356,7 +360,7 @@ class DeepLPFLoss(nn.Module):
             assert type(cosWeight + 0.1) == float
 
             cos_loss = self.cos(predicted_img_batch,
-                                target_img_batch).mean() * cosWeight
+                                gt_batch).mean() * cosWeight
             self.losses[COS_LOSS] = cos_loss
             deeplpf_loss += cos_loss
         # ─────────────────────────────────────────────────────────────────

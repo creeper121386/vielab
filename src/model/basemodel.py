@@ -36,7 +36,7 @@ class BaseModel(pl.core.LightningModule):
         # items.pop("loss", None)
         return items
 
-    def save_img(self, batch, dirpath, fname):
+    def save_one_img_of_batch(self, batch, dirpath, fname):
         if not osp.exists(dirpath):
             console.log(f'Image dir path "{dirpath}" not exists. Created.')
             os.makedirs(dirpath)
@@ -44,6 +44,23 @@ class BaseModel(pl.core.LightningModule):
         imgpath = osp.join(dirpath, fname)
         assert len(batch.shape) == 4
         img = util.saveTensorAsImg(batch[0], imgpath)
+
+    def log_IOG_images(self, mode, step, fname, input_batch, output_batch, gt_batch):
+        '''
+        log_IOG_images means: log input, output and gt images to local disk and remote wandb logger.
+        mode: TRAIN or VALID
+        '''
+        if step % self.opt[LOG_EVERY] == 0:
+            fname = osp.basename(fname) + f'_epoch{self.current_epoch}_iter{step}.png'
+            if mode == VALID:
+                self.save_one_img_of_batch(output_batch, self.valid_img_dirpath, fname)
+            elif mode == TRAIN:
+                self.save_one_img_of_batch(output_batch, self.train_img_dirpath, fname)
+
+            self.logger_buffer_add_img(mode, input_batch, mode, INPUT, fname)
+            self.logger_buffer_add_img(mode, output_batch, mode, OUTPUT, fname)
+            self.logger_buffer_add_img(mode, gt_batch, mode, GT, fname)
+            self.commit_logger_buffer(mode)
 
     def logger_buffer_add_img(self, group_name, batch, *caption):
         if len(batch.shape) == 3:

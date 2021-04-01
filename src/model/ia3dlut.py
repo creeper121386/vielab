@@ -113,13 +113,13 @@ class IA3DLUTLitModel(BaseModel):
         _, combine_A = self.trilinear(final_LUT, img)
         return combine_A, weights_norm
 
-    def log_local_and_wandb_images(self, mode, batch_idx, fname, input_batch, output_batch, gt_batch):
+    def log_local_and_wandb_images(self, mode, batch_idx, fpath, input_batch, output_batch, gt_batch):
         if batch_idx % self.opt[LOG_EVERY] == 0:
-            fname = osp.basename(fname) + f'_epoch{self.current_epoch}_iter{batch_idx}.png'
+            fname = osp.basename(fpath) + f'_epoch{self.current_epoch}_iter{batch_idx}.png'
             if mode == VALID:
-                self.save_img(output_batch, self.valid_img_dirpath, fname)
+                self.save_one_img_of_batch(output_batch, self.valid_img_dirpath, fname)
             elif mode == TRAIN:
-                self.save_img(output_batch, self.train_img_dirpath, fname)
+                self.save_one_img_of_batch(output_batch, self.train_img_dirpath, fname)
 
             self.logger_buffer_add_img(mode, input_batch, mode, INPUT, fname)
             self.logger_buffer_add_img(mode, output_batch, mode, OUTPUT, fname)
@@ -162,7 +162,7 @@ class IA3DLUTLitModel(BaseModel):
         for x, y in self.train_metrics.items():
             self.log(x, y, prog_bar=True)
 
-        self.log_local_and_wandb_images(TRAIN, self.global_step, batch[FNAME][0], input_batch, output_batch, gt_batch)
+        self.log_local_and_wandb_images(TRAIN, self.global_step, batch[FPATH][0], input_batch, output_batch, gt_batch)
 
         return loss
 
@@ -173,7 +173,7 @@ class IA3DLUTLitModel(BaseModel):
         output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
 
         # save valid images
-        self.log_local_and_wandb_images(VALID, self.global_step, batch[FNAME][0], input_batch, output_batch, gt_batch)
+        self.log_local_and_wandb_images(VALID, self.global_step, batch[FPATH][0], input_batch, output_batch, gt_batch)
 
         # get psnr
         self.valid_metrics[PSNR] = util.ImageProcessing.compute_psnr(
@@ -193,12 +193,9 @@ class IA3DLUTLitModel(BaseModel):
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
-        input_batch, fnames = batch[INPUT], batch[FNAME]
+        input_batch, fpaths = batch[INPUT], batch[FPATH]
         output, _ = self.eval_forward_one_img(input_batch)
-
-        if type(fnames) == list:
-            fname = fnames[0]
-        util.saveTensorAsImg(output, osp.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
+        util.saveTensorAsImg(output, osp.join(self.opt[IMG_DIRPATH], osp.basename(fpaths[0])))
 
         # test with GT:
         if GT in batch:

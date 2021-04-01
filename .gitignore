@@ -5,7 +5,7 @@ src/runs/
 src/.hydra/
 src/outputs/
 src/*.log
-src/wandb/s
+src/wandb
 debug/
 src/lightning_logs*
 *cache*

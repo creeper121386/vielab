@@ -1,8 +1,56 @@
 # -*- coding: utf-8 -*-
 
+import os.path as osp
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from globalenv import *
+
+from .basemodel import BaseModel
+
+
+class UNetLitModel(BaseModel):
+    def __init__(self):
+        super().__init__(opt, [TRAIN, VALID])
+
+        self.net = UNetModel()
+        self.train_metrics = {
+            L1_LOSS: 0,
+            # LTV_LOSS: 0,
+            # COS_LOSS: 0,
+            # LOSS: 0
+        }
+
+        self.valid_metrics = {
+            L1_LOSS: 0,
+            PSNR: 0,
+            SSIM: 0
+        }
+
+        self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
+        if opt[RUNTIME][PREDICT_ILLUMINATION]:
+            uitl.mkdir(self.illumination_dirpath)
+
+        self.criterion = nn.MSELoss()
+        self.net.train()
+
+    def training_step(self, batch, batch_idx):
+        input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
+        output_batch = self.net(input_batch).clamp(0, 1)
+        loss = self.criterion(output_batch, gt_batch)
+
+        # calculate illumination here if needed.
+
+        # logging
+        self.train_metrics[L1_LOSS] = loss
+        self.log_dict(self.train_metrics)
+        self.log_IOG_images(TRAIN, self.global_step, osp.basename(fpaths[0]), input_batch, output_batch, gt_batch)
+
+        return loss
+
+    def validation_step(self):
+        pass
 
 
 class UNet(nn.Module):
@@ -181,7 +229,6 @@ class UNetModel(nn.Module):
         :param image: input image
         :returns: image features
         :rtype: Tensor
-
         """
 
         output_image = self.unet(image)

@@ -29,7 +29,7 @@ DEFAULTS = 'defaults'
 HYDRA = 'hydra'
 
 # fields in dataset.py (result of dataset[i])
-FNAME = 'fname'
+FPATH = 'fpath'
 
 # config.yml
 DEBUG = 'debug'
