@@ -1,5 +1,6 @@
 # @package _group_
 # 没有任何实际含义，仅做测试用
 
+name: local-debug
 GT: /Users/why/dev/dataset/vielab-debug/gt/*
 input: /Users/why/dev/dataset/vielab-debug/input/*

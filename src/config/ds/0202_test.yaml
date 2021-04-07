@@ -2,5 +2,6 @@
 # 2.2的数据，包含三个视频。似乎都是夜间军事行动的视频
 # 没有GT，只用作测试数据
 
+name: 0202-test
 GT: /data1/why/frame/2021-02-02/*
 input: /data1/why/frame/2021-02-02/*

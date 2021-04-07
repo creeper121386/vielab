@@ -10,7 +10,7 @@ try:
     import trilinear
 except:
     Warning('WARN: Can not import module `trilinear`')
-import util
+from toolbox import util
 from globalenv import *
 from torch.autograd import Variable
 from .basemodel import BaseModel

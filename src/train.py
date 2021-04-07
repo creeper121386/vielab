@@ -13,7 +13,7 @@ from dataset import ImagesDataset
 from globalenv import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from util import checkConfig, configLogging, server_chan_send
+from toolbox.util import checkConfig, configLogging, server_chan_send
 from data_aug import parseAugmentation
 
 from model.model_zoo import MODEL_ZOO
@@ -29,7 +29,7 @@ def main(config):
     if opt[DEBUG]:
         debug_config = {
             DATALOADER_NUM_WORKER: 0,
-            EXPNAME: DEBUG,
+            NAME: DEBUG,
             LOG_EVERY: 1,
             NUM_EPOCH: 2
         }
@@ -84,9 +84,10 @@ def main(config):
 
     # trainer logger:
     mylogger = WandbLogger(
-        name=opt[EXPNAME],
+        name=opt[NAME],
         project='vielab',
-        notes=None if not opt[COMMENT] else opt[COMMENT]
+        notes=None if not opt[COMMENT] else opt[COMMENT],
+        tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
     )
 
     # init trainer:

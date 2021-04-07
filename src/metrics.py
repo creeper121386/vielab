@@ -4,7 +4,7 @@ from glob import glob
 import numpy as np
 from PIL import Image
 from globalenv import PSNR, SSIM, console
-from util import calculate_psnr, calculate_ssim
+from toolbox.util import calculate_psnr, calculate_ssim
 
 '''
 Calculate metrics (psnr, ssim) for 2 image sets 
@@ -37,12 +37,12 @@ for x, y in zip(folder1, folder2):
     if PSNR in metrics:
         psnr = calculate_psnr(im1, im2)
         metrics[PSNR] += psnr
-        console.log(f'[{i}] PSNR: {psnr}, [AVG] PSNR: {metrics[PSNR] / i}')
+        console.log(f'[[{i}]] PSNR: {psnr}, [[AVG]] PSNR: {metrics[PSNR] / i}')
 
     if SSIM in metrics:
         ssim = calculate_ssim(im1, im2)
         metrics[SSIM] += ssim
-        console.log(f'[{i}] SSIM: {ssim} - [AVG] SSIM: {metrics[SSIM] / i}')
+        console.log(f'[[{i}]] SSIM: {ssim} - [[AVG]] SSIM: {metrics[SSIM] / i}')
 
     # Use torch (GPU) to compute, removed.
     # im1 = torch.tensor(im1).unsqueeze(0)

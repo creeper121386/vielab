@@ -8,9 +8,10 @@ enhancement methods:
 [comment]: <> (- [ ] 3D-LUT: [src]&#40;https://github.com/HuiZeng/Image-Adaptive-3DLUT&#41; | [paper]&#40;https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf&#41;)
 
 |Model|Source|Paper
-|---|---|---
+|:---:|:---:|:---:
 |DeepLPF|https://github.com/sjmoran/DeepLPF|https://arxiv.org/abs/2003.13985
 |3D-LUT|https://github.com/HuiZeng/Image-Adaptive-3DLUT|https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf
+|UNet| - | - 
 
 The code architecture of this project is applicable to any model whose input and output are images, like de-noising,
 HDR, super resolution, and other kinds of enhancement.

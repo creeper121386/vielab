@@ -1,11 +1,10 @@
-import os
 import os.path as osp
 from collections.abc import Iterable
 
 import pytorch_lightning as pl
-import util
 import wandb
 from globalenv import *
+from toolbox import util
 
 
 class BaseModel(pl.core.LightningModule):
@@ -37,9 +36,7 @@ class BaseModel(pl.core.LightningModule):
         return items
 
     def save_one_img_of_batch(self, batch, dirpath, fname):
-        if not osp.exists(dirpath):
-            console.log(f'Image dir path "{dirpath}" not exists. Created.')
-            os.makedirs(dirpath)
+        util.mkdir(dirpath)
 
         imgpath = osp.join(dirpath, fname)
         assert len(batch.shape) == 4

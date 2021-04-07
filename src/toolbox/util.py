@@ -11,7 +11,6 @@ Authors: Sean Moran (sean.j.moran@gmail.com),
          Pierre Marza (pierre.marza@gmail.com)
 
 '''
-import datetime
 import logging
 import os
 import os.path as osp
@@ -87,7 +86,10 @@ from torch.autograd import Variable
 
 def mkdir(dirpath):
     if not osp.exists(dirpath):
+        console.log(f'Creating directory: {dirpath}')
         os.makedirs(dirpath)
+        return
+    # console.log(f'Directory {dirpath} already exists, skip creating.')
 
 
 def server_chan_send(title, msg):
@@ -195,15 +197,15 @@ def parseConfig(dirpath):
 
 
 def configLogging(mode, opt):
-    log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[EXPNAME]}_" + \
-                  datetime.datetime.now().strftime(LOG_TIME_FORMAT)
+    log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[NAME]}" \
+        # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, IMAGES)
 
-    os.makedirs(log_dirpath)
-    os.makedirs(img_dirpath)
+    mkdir(log_dirpath)
+    mkdir(img_dirpath)
 
-    console.log('Build log directory:', log_dirpath)
-    console.log('Build image directory:', img_dirpath)
+    console.log('Log directory:', log_dirpath)
+    console.log('Image directory:', img_dirpath)
 
     handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME)), logging.StreamHandler()]
     logging.basicConfig(

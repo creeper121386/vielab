@@ -41,7 +41,7 @@ VALID_EVERY = 'valid_every'
 AUGMENTATION = 'aug'
 NUM_EPOCH = 'num_epoch'
 LOG_EVERY = 'log_every'
-EXPNAME = 'name'
+NAME = 'name'
 LOSS = 'loss'
 DATA = 'ds'
 VALID_DATA = 'valid_ds'
@@ -105,7 +105,7 @@ IMAGES = 'images'
 
 # required arguments in any condition:
 GENERAL_NECESSARY_ARGUMENTS = [
-    EXPNAME,
+    NAME,
     RUNTIME,
     GPU,
     DATA,

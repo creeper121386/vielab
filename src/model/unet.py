@@ -50,6 +50,7 @@ class UNetLitModel(BaseModel):
         return loss
 
     def validation_step(self):
+        # TODO: finish here.
         pass
 
 

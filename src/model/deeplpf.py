@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import util
 from globalenv import *
+from toolbox import util
 from torch.autograd import Variable
 
 from . import unet as unet
@@ -47,9 +47,10 @@ class DeepLpfLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        if not self.MODEL_WATCHED:
-            self.logger.watch(self.net)
-            self.MODEL_WATCHED = True
+        # watch model gradients:
+        # if not self.MODEL_WATCHED:
+        #     self.logger.watch(self.net)
+        #     self.MODEL_WATCHED = True
 
         input_batch, gt_batch, fpaths = Variable(batch[INPUT], requires_grad=False), \
                                         Variable(batch[GT],
@@ -73,7 +74,7 @@ class DeepLpfLitModel(BaseModel):
         for k in self.losses:
             if this_losses[k] is not None:
                 # TODO: 多卡训练时，这里报错两个tensor分别在两块卡上：
-                self.losses[k] += this_losses[k]
+                self.losses[k] = this_losses[k]
             else:
                 self.losses[k] = STRING_FALSE
 
@@ -81,7 +82,7 @@ class DeepLpfLitModel(BaseModel):
         for x, y in self.losses.items():
             if y != STRING_FALSE:
                 # `self.log_dict` will cause key error.
-                self.log(x, y / self.global_step, prog_bar=True, on_step=True, on_epoch=False)
+                self.log(x, y, prog_bar=True, on_step=True, on_epoch=False)
 
         # save images
         # note: self.global_step increases in training_step only, not effected by validation.

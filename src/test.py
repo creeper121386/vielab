@@ -9,7 +9,7 @@ from dataset import ImagesDataset
 from globalenv import *
 from model.model_zoo import MODEL_ZOO
 from pytorch_lightning import Trainer
-from util import checkConfig, configLogging
+from toolbox.util import checkConfig, configLogging
 
 
 @hydra.main(config_path='config', config_name="config")
