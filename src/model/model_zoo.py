@@ -3,11 +3,13 @@ from globalenv import *
 
 from .deeplpf import DeepLpfLitModel
 from .ia3dlut import IA3DLUTLitModel
+from .zerodce import ZeroDCELitModel
 
 # from .ia3dlut import
 MODEL_ZOO = {
     DEEP_LPF: DeepLpfLitModel,
     IA3DLUT: IA3DLUTLitModel,
+    ZERODCE: ZeroDCELitModel
 }
 
 # extra required arguments for each model:
@@ -28,5 +30,9 @@ RUNTIME_NECESSARY_ARGUMENTS = {
         LAMBDA_SMOOTH,
         LAMBDA_MONOTONICITY,
         LUT_FILEPATH
+    ],
+
+    ZERODCE: [
+        MODELNAME
     ]
 }

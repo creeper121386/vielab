@@ -43,6 +43,9 @@ class DeepLpfLitModel(BaseModel):
         self.net.train()
 
     def configure_optimizers(self):
+        # self.parameters in LitModel is the same as nn.Module.
+        # once you add nn.xxxx as a member in __init__, self.parameters will include it.
+
         optimizer = optim.Adam(self.parameters(), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
         return optimizer
 

@@ -59,6 +59,9 @@ LTV_LOSS = 'ltv'
 COS_LOSS = 'cos'
 SSIM_LOSS = 'ssimLoss'
 L1_LOSS = 'L1Loss'
+COLOR_LOSS = 'l_color'
+SPATIAL_LOSS = 'l_spa'
+EXPOSURE_LOSS = 'l_exp'
 
 # metrics
 PSNR = 'psnr'
@@ -75,6 +78,7 @@ CONTRAST_ADJUST = 'contrast_adjust'
 # config.runtime.modelname
 DEEP_LPF = 'deeplpf'
 IA3DLUT = '3dlut'
+ZERODCE = '0dce'
 
 # config.runtime.deeplpf.*
 PREDICT_ILLUMINATION = 'predict_illumination'
@@ -94,6 +98,10 @@ TV_CONS = 'tv_cons'
 MN_CONS = 'mv_cons'
 WEIGHTS_NORM = 'wnorm'
 LUT_FILEPATH = 'lut_filepath'
+TEST_PTH = 'test_pth'
+
+# config.runtime.0zero.*
+WEIGHT_DECAY = 'weight_decay'
 
 # running mode
 TRAIN = 'train'

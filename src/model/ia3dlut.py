@@ -51,7 +51,6 @@ class IA3DLUTLitModel(BaseModel):
         }
 
     def configure_optimizers(self):
-
         return optim.Adam(
             itertools.chain(self.cnn.parameters(), *[x.parameters() for x in self.luts]),
             lr=self.opt[LR], betas=(self.opt[RUNTIME][BETA1], self.opt[RUNTIME][BETA2]), eps=1e-08)

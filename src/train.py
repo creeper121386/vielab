@@ -87,7 +87,8 @@ def main(config):
         name=opt[NAME],
         project='vielab',
         notes=None if not opt[COMMENT] else opt[COMMENT],
-        tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
+        # tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
+        tags = [opt[RUNTIME][MODELNAME], opt[DATA][NAME]]
     )
 
     # init trainer:
