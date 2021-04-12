@@ -1,7 +1,8 @@
 # @package _group_
+# predict illumination map instead of alpha map
 
 modelname: 0dce
-predict_illumination: false
+predict_illumination: true
 
 weight_decay: 0.0001
 grad_clip_norm: 0.1

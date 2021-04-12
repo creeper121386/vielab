@@ -10,6 +10,9 @@ debug/
 src/lightning_logs*
 *cache*
 *log
+train_log
+test_log
+metrics_log
 .DS_Store
 *.jpg
 # Byte-compiled / optimized / DLL files

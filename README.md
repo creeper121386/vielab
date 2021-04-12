@@ -71,8 +71,8 @@ Finally, your command looks like:
 python train.py ds=my_data runtime=deeplpf.config1 aug=resize runtime.loss.ltv=0.001 gpu=2 name=demo1
 ```
 
-You could run this command in bash or zsh, but a better way is to run in `vash`: a simple "shell" only for this project.
-For more details, see the [Running in vash](#running) part.
+You could run this command in bash or zsh, but a better way is to run in `vsh`: a simple "shell" only for this project.
+For more details, see the [Running in vsh](#running) part.
 
 ### Testing and evaluation
 
@@ -132,22 +132,22 @@ If you are still confused about the config process of the project, I recommend y
 read [Hydra documentation](https://hydra.cc/docs/intro). Trust me, although `Hydra` looks more complicated, it's much
 better than `argparse` in deep learning project.
 
-## <a name="running"></a> Running in `vash`
+## <a name="running"></a> Running in `vsh`
 
 In the `Config your model`, I have told you how to train or test a model using `Hydra`. However, a better way is to run
-the command in `vash`.
+the command in `vsh`.
 
 Because arguments auto-completion and path completion is not supported by hydra, it is so annoying to enter extremely
-long arguments in shell. So I implement `vash` with `prompt_toolkit` to solve the problem, which supports path
+long arguments in shell. So I implement `vsh` with `prompt_toolkit` to solve the problem, which supports path
 completion, argument completion, input history suggestion, and even multi-level argument search! Try and enjoy it by
 running:
 
 ```shell
 # train a model:
-./vash train
+./vsh train
 
 # test or evaluate a model:
-./vash test
+./vsh test
 ```
 
 then you will enter a "shell" to input all the arguments with amazing auto-completion. Path completion is supported for

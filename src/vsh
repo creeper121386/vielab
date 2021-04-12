@@ -14,7 +14,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 
 if len(sys.argv) != 2:
-    print('Usage: ./vash <mode>')
+    print('Usage: ./vsh <mode>')
     sys.exit()
 mode = sys.argv[1]
 assert mode in [TRAIN, TEST]
@@ -205,7 +205,7 @@ class VashCompleter(Completer):
 
 
 def bottom_toolbar():
-    return HTML('Example: name=exp001 ds=local-debug runtime=deeplpf.default aug=crop512')
+    return HTML('Important args: name, ds, valid_ds, runtime, aug, num_epoch, log_every, valid_every')
 
 
 def get_field_words(field):
@@ -215,7 +215,7 @@ def get_field_words(field):
 
 
 def complete_cmd():
-    print('* Initializing vash...')
+    print('* Initializing vsh...')
     total_args = []
     for field in [DATA, RUNTIME, AUGMENTATION]:
         total_args.extend(get_field_words(field))
@@ -229,7 +229,7 @@ def complete_cmd():
         completer=completer,
         complete_while_typing=True,
         bottom_toolbar=bottom_toolbar,
-        history=FileHistory('../.vielab-history'),
+        history=FileHistory(f'../.vielab-{mode}-history'),
         auto_suggest=AutoSuggestFromHistory(),
         complete_in_thread=True,
         key_bindings=bindings

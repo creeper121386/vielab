@@ -1,0 +1,5 @@
+# @package _group_
+
+name: adobe5k
+GT: /data1/why/data/fivk-train/output/*
+input: /data1/why/data/fivk-train/input/*

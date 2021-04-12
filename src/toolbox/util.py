@@ -168,34 +168,6 @@ def calculate_ssim(img1, img2):
         raise ValueError('Wrong input image dimensions.')
 
 
-# (Discarded, now use Hydra)
-def parseConfig(dirpath):
-    '''
-    parse structured configs from directories. The directory must contains `config.yaml` , which defines which configLogging group to choose from. For example:
-
-    config
-    ├── config.yaml
-    ├── db
-    │   ├── mysql.yaml
-    │   └── postgresql.yaml
-    ├── schema
-    │   ├── school.yaml
-    │   ├── support.yaml
-    │   └── warehouse.yaml
-    └── ui
-        ├── full_data.train.yaml
-        └── view.yaml
-
-    And the config.yaml is:
-
-    defaults:
-        - db: mysql
-        - schema: school
-        - ui: view
-    '''
-    pass
-
-
 def configLogging(mode, opt):
     log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[NAME]}" \
         # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)

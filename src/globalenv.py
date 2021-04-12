@@ -18,6 +18,7 @@ CUDA_AVAILABLE = cuda_available()
 EVAL_RESULT_PATH = '../eval_results/'
 CONFIG_DIRPATH = './config'
 CONFIG_FILEPATH = './config/config.yaml'
+METRICS_LOG_DIRPATH = '../metrics_log'
 LOG_FILENAME = 'run.log'
 LOG_TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT = 'input'
@@ -102,6 +103,7 @@ TEST_PTH = 'test_pth'
 
 # config.runtime.0zero.*
 WEIGHT_DECAY = 'weight_decay'
+GRAD_CLIP_NORM = 'grad_clip_norm'
 
 # running mode
 TRAIN = 'train'

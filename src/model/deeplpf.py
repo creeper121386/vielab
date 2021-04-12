@@ -37,7 +37,7 @@ class DeepLpfLitModel(BaseModel):
         }
         self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
         if opt[RUNTIME][PREDICT_ILLUMINATION]:
-            uitl.mkdir(self.illumination_dirpath)
+            util.mkdir(self.illumination_dirpath)
 
         self.criterion = DeepLPFLoss(opt, ssim_window_size=5)
         self.net.train()
@@ -46,7 +46,7 @@ class DeepLpfLitModel(BaseModel):
         # self.parameters in LitModel is the same as nn.Module.
         # once you add nn.xxxx as a member in __init__, self.parameters will include it.
 
-        optimizer = optim.Adam(self.parameters(), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
+        optimizer = optim.Adam(self.net.parameters(), lr=self.opt[LR], betas=(0.9, 0.999), eps=1e-08)
         return optimizer
 
     def training_step(self, batch, batch_idx):
@@ -1195,7 +1195,7 @@ class DeepLPFNet(nn.Module):
             # limit (input / out) to 0 ~ 1
             # 对于输出结果(L)中，比input还小的部分，直接取input
             # 防止预测的L，比input值（暗光图）还要小:
-            output = input / torch.where(output < input, input, output)
+            output = input / (torch.where(output < input, input, output) / 1e-7)
 
         output_dict[INPUT] = input
         output_dict[OUTPUT] = output

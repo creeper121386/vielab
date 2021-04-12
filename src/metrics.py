@@ -1,9 +1,10 @@
+import os.path as osp
 import sys
 from glob import glob
 
 import numpy as np
 from PIL import Image
-from globalenv import PSNR, SSIM, console
+from globalenv import PSNR, SSIM, console, METRICS_LOG_DIRPATH
 from toolbox.util import calculate_psnr, calculate_ssim
 
 '''
@@ -24,11 +25,15 @@ metrics = {
 }
 console.log(f'[*] Metrics: {list(metrics.keys())}')
 
+file = osp.join(METRICS_LOG_DIRPATH, f'metrics-{folder1.replace("/", ".")}-and-{folder2.replace("/", ".")}.csv')
+f = open(file, 'w+')
+f.write('fname1,fname2,' + ','.join(list(metrics.keys())) + '\n')
 for x, y in zip(folder1, folder2):
     i += 1
     console.log(f'[{i}] Now running: {x} and {y}')
     im1 = np.array(Image.open(x))
     im2 = np.array(Image.open(y))
+    f.write(f'{x},{y}')
 
     if im1.shape != im2.shape:
         console.log(f'WARN: image shape mismatch: {im1.shape} != {im2.shape}. Resized.')
@@ -38,11 +43,15 @@ for x, y in zip(folder1, folder2):
         psnr = calculate_psnr(im1, im2)
         metrics[PSNR] += psnr
         console.log(f'[[{i}]] PSNR: {psnr}, [[AVG]] PSNR: {metrics[PSNR] / i}')
+        f.write(',' + str(psnr))
 
     if SSIM in metrics:
         ssim = calculate_ssim(im1, im2)
         metrics[SSIM] += ssim
         console.log(f'[[{i}]] SSIM: {ssim} - [[AVG]] SSIM: {metrics[SSIM] / i}')
+        f.write(',' + str(ssim))
+
+    f.write('\n')
 
     # Use torch (GPU) to compute, removed.
     # im1 = torch.tensor(im1).unsqueeze(0)

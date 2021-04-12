@@ -112,7 +112,7 @@ class IA3DLUTLitModel(BaseModel):
         _, combine_A = self.trilinear(final_LUT, img)
         return combine_A, weights_norm
 
-    def log_local_and_wandb_images(self, mode, batch_idx, fpath, input_batch, output_batch, gt_batch):
+    def ia3dlut_log(self, mode, batch_idx, fpath, input_batch, output_batch, gt_batch):
         if batch_idx % self.opt[LOG_EVERY] == 0:
             fname = osp.basename(fpath) + f'_epoch{self.current_epoch}_iter{batch_idx}.png'
             if mode == VALID:
@@ -126,11 +126,10 @@ class IA3DLUTLitModel(BaseModel):
             self.commit_logger_buffer(mode)
 
     def training_step(self, batch, batch_idx):
-        if not self.MODEL_WATCHED:
-            self.logger.watch(self.luts)
-            self.logger.watch(self.cnn)
-
-            self.MODEL_WATCHED = True
+        # if not self.MODEL_WATCHED:
+        #     self.logger.watch(self.luts)
+        #     self.logger.watch(self.cnn)
+        #     self.MODEL_WATCHED = True
 
         # get output
         input_batch, gt_batch = Variable(batch[INPUT], requires_grad=False), \
@@ -161,18 +160,22 @@ class IA3DLUTLitModel(BaseModel):
         for x, y in self.train_metrics.items():
             self.log(x, y, prog_bar=True)
 
-        self.log_local_and_wandb_images(TRAIN, self.global_step, batch[FPATH][0], input_batch, output_batch, gt_batch)
+        self.ia3dlut_log(TRAIN, self.global_step, batch[FPATH][0], input_batch, output_batch, gt_batch)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
+
         # get output
         input_batch, gt_batch = Variable(batch[INPUT], requires_grad=False), \
                                 Variable(batch[GT], requires_grad=False)
         output_batch, self.valid_metrics[WEIGHTS_NORM] = self.eval_forward_one_img(input_batch)
 
-        # save valid images
-        self.log_local_and_wandb_images(VALID, self.global_step, batch[FPATH][0], input_batch, output_batch, gt_batch)
+        # log images:
+        self.global_valid_step += 1
+        self.ia3dlut_log(VALID, self.global_valid_step,
+                         batch[FPATH][0], input_batch,
+                         output_batch, gt_batch)
 
         # get psnr
         self.valid_metrics[PSNR] = util.ImageProcessing.compute_psnr(
@@ -180,9 +183,8 @@ class IA3DLUTLitModel(BaseModel):
             util.cuda_tensor_to_ndarray(gt_batch), 1.0
         )
 
-        # log to pl and logger
+        # log metrics to pl and loggers
         valid_metrics = {f'{VALID}.{x}': y for x, y in self.valid_metrics.items()}
-
         for x, y in valid_metrics.items():
             # Tips: if call self.log with on_step=True here, metrics will bacome "valid.psnr/epoch_xxx"
             # So just call without arguments.

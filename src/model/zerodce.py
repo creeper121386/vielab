@@ -27,7 +27,7 @@ class ZeroDCELitModel(BaseModel):
         if opt[VALID_DATA][INPUT]:
             console.log('[yellow]WARNING: valid mode is not needed in ZeroDCE, ignore valid_dataloader.[/yellow]')
 
-        self.net = enhance_net_nopool()
+        self.net = enhance_net_nopool(opt)
         self.net.apply(weights_init)
 
         self.color_loss = L_color()
@@ -58,8 +58,18 @@ class ZeroDCELitModel(BaseModel):
             EXPOSURE_LOSS: loss_exposure,
             LOSS: loss
         })
-        # todo: add img logging here.
+
+        # logging image:
+        if self.global_step % self.opt[LOG_EVERY] == 0:
+            fname = osp.basename(batch[FPATH][0]) + f'_epoch{self.current_epoch}_iter{self.global_step}.png'
+            self.save_one_img_of_batch(enhanced_image, self.train_img_dirpath, fname)
+            self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
+            self.logger_buffer_add_img(TRAIN, enhanced_image, TRAIN, OUTPUT, fname)
+            self.commit_logger_buffer(TRAIN)
         return loss
+
+    def on_after_backward(self):
+        torch.nn.utils.clip_grad_norm(self.net.parameters(), self.opt[RUNTIME][GRAD_CLIP_NORM])
 
     def test_step(self, batch, batch_ix):
         input_batch, fname = batch[INPUT], batch[FPATH][0]
@@ -253,9 +263,9 @@ class perception_loss(nn.Module):
 
 class enhance_net_nopool(nn.Module):
 
-    def __init__(self):
+    def __init__(self, opt):
         super(enhance_net_nopool, self).__init__()
-
+        self.opt = opt
         self.relu = nn.ReLU(inplace=True)
 
         number_f = 32
@@ -265,7 +275,11 @@ class enhance_net_nopool(nn.Module):
         self.e_conv4 = nn.Conv2d(number_f, number_f, 3, 1, 1, bias=True)
         self.e_conv5 = nn.Conv2d(number_f * 2, number_f, 3, 1, 1, bias=True)
         self.e_conv6 = nn.Conv2d(number_f * 2, number_f, 3, 1, 1, bias=True)
-        self.e_conv7 = nn.Conv2d(number_f * 2, 24, 3, 1, 1, bias=True)
+
+        if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
+            self.e_conv7 = nn.Conv2d(number_f * 2, 3, 3, 1, 1, bias=True)
+        else:
+            self.e_conv7 = nn.Conv2d(number_f * 2, 24, 3, 1, 1, bias=True)
 
         self.maxpool = nn.MaxPool2d(2, stride=2, return_indices=False, ceil_mode=False)
         self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
@@ -284,15 +298,24 @@ class enhance_net_nopool(nn.Module):
         x6 = self.relu(self.e_conv6(torch.cat([x2, x5], 1)))
 
         x_r = torch.tanh(self.e_conv7(torch.cat([x1, x6], 1)))
-        r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
 
-        x = x + r1 * (torch.pow(x, 2) - x)
-        x = x + r2 * (torch.pow(x, 2) - x)
-        x = x + r3 * (torch.pow(x, 2) - x)
-        enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
-        x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
-        x = x + r6 * (torch.pow(x, 2) - x)
-        x = x + r7 * (torch.pow(x, 2) - x)
-        enhance_image = x + r8 * (torch.pow(x, 2) - x)
-        r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
-        return enhance_image_1, enhance_image, r
+        if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
+            # predict illumination map:
+            # failed. loss is NaN.
+            output = x / (torch.where(x_r < x, x, x_r) + 1e-7)
+            # output = x / x_r
+            return None, output, x_r
+
+        else:
+            # predict 8 alpha maps:
+            r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
+            x = x + r1 * (torch.pow(x, 2) - x)
+            x = x + r2 * (torch.pow(x, 2) - x)
+            x = x + r3 * (torch.pow(x, 2) - x)
+            enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
+            x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
+            x = x + r6 * (torch.pow(x, 2) - x)
+            x = x + r7 * (torch.pow(x, 2) - x)
+            enhance_image = x + r8 * (torch.pow(x, 2) - x)
+            r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
+            return enhance_image_1, enhance_image, r

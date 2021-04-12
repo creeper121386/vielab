@@ -2,6 +2,7 @@ import os.path as osp
 from collections.abc import Iterable
 
 import pytorch_lightning as pl
+import torchvision
 import wandb
 from globalenv import *
 from toolbox import util
@@ -25,6 +26,7 @@ class BaseModel(pl.core.LightningModule):
 
         self.opt = opt
         self.MODEL_WATCHED = False  # for wandb watching model
+        self.global_valid_step = 0
 
         assert isinstance(logger_img_group_names, Iterable)
         self.logger_image_buffer = {k: [] for k in logger_img_group_names}
@@ -40,7 +42,8 @@ class BaseModel(pl.core.LightningModule):
 
         imgpath = osp.join(dirpath, fname)
         assert len(batch.shape) == 4
-        img = util.saveTensorAsImg(batch[0], imgpath)
+        # img = util.saveTensorAsImg(batch[0], imgpath)
+        torchvision.utils.save_image(batch[0], imgpath)
 
     def log_IOG_images(self, mode, step, fname, input_batch, output_batch, gt_batch):
         '''
@@ -61,7 +64,7 @@ class BaseModel(pl.core.LightningModule):
 
     def logger_buffer_add_img(self, group_name, batch, *caption):
         if len(batch.shape) == 3:
-            # input is not a batch, but a single image.
+            # when input is not a batch:
             batch = batch.unsqueeze(0)
 
         self.logger_image_buffer[group_name].append(
