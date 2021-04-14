@@ -301,9 +301,8 @@ class enhance_net_nopool(nn.Module):
 
         if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
             # predict illumination map:
-            # failed. loss is NaN.
             output = x / (torch.where(x_r < x, x, x_r) + 1e-7)
-            # output = x / x_r
+            # output = x * x_r
             return None, output, x_r
 
         else:
