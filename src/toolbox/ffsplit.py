@@ -4,6 +4,7 @@ import sys
 from rich.console import Console
 
 '''
+Split video to image sequences
 Usage: python ffsplit.py <video_dir_path> <output_dir_path> <resize_factor>
 or:    python ffsplit.py <video_path> <output_dir_path> <resize_factor>
 '''

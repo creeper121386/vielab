@@ -1,6 +1,6 @@
 # vielab
 
-`vielab` means Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image
+`vielab`: Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image
 enhancement methods:
 
 [comment]: <> (- [x] DeepLPF: [src]&#40;https://github.com/sjmoran/DeepLPF&#41; | [paper]&#40;https://arxiv.org/abs/2003.13985&#41;)
@@ -9,11 +9,12 @@ enhancement methods:
 
 |Model|Source|Paper
 |:---:|:---:|:---:
-|DeepLPF|https://github.com/sjmoran/DeepLPF|https://arxiv.org/abs/2003.13985
-|3D-LUT|https://github.com/HuiZeng/Image-Adaptive-3DLUT|https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf
+|DeepLPF|[github repo](https://github.com/sjmoran/DeepLPF)|[paper link](https://arxiv.org/abs/2003.13985)
+|3D-LUT|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[paper link](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf)
+|ZeroDCE| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) 
 |UNet| - | - 
 
-The code architecture of this project is applicable to any model whose input and output are images, like de-noising,
+The code architecture of this project is applicable to **ANY** model whose input and output are images, like de-noising,
 HDR, super resolution, and other kinds of enhancement.
 
 ## Environment
@@ -23,46 +24,49 @@ HDR, super resolution, and other kinds of enhancement.
 - cudnn 7
 - pytorch-lightning 1.2.2
 - prompt-toolkit
+- wandb
 
 ## Config your model
 
 ### Training
 
 The project use `Hydra` to manage config files. Config files are located in `./src/config`. `./src/config/config.yaml`
-contains two parts: general configs for all experiments and config groups for each experiment. General config looks
-like:
+contains two parts: 
+- General configs for all experiments, like `name, num_epoch, checkpoint_path`
+  General config looks like:
+  
+  ```yaml
+  name: default_name    # name of experiment
+  num_epoch: 1000
+  gpu: 1
+  valid_every: 10
+  log_every: 100
+  save_model_every: 20
+  checkpoint_path: false # false for do not load runtime. Necessary when testing.
+  ```
+  
+  which is shared by all models.
+  
 
-```yaml
-name: default_name    # name of experiment
-num_epoch: 1000
-gpu: 1
-valid_every: 10
-log_every: 100
-save_model_every: 20
-checkpoint_path: false # false for do not load runtime. Necessary when testing.
-```
+- And config groups for each experiment, containing `ds`, `aug` and `runtime`. Config group is defined in directory `./src/config/<group_name>`.
+  
+  For example, if you want to add a new config file for group `ds`, just create `./src/config/ds/local-debug.yaml` and
+  fill it. In such a yaml file, you need to add an extra line at the beginning:
+  
+  ```
+  # @package _group_
+  ```
 
-which is shared by all the models.
+  which means using the group name as package when including this yaml file.
+  
+You need 4 steps to passing arguments to run a model:
 
-Config groups contains `ds`, `aug` and `runtime`. Each config group is defined in directory `./src/config/<group_name>`.
-For example, if you want to create a new config file for group `ds`, just create `./src/config/ds/local-debug.yaml` and
-fill it. In such a yaml file, you need to add an extra line at the beginning:
-
-```
-# @package _group_
-```
-
-which means using the group name as package when including this yaml file.
-
-If you have completed the `yaml` file, you need 4 steps to run a model:
-
-- choose your dataset by passing command line arguments `ds=<dataset_name>`
-- choose your model and runtime config by passing command line arguments `runtime=<model_name>.<runtime_config>`
+- choose the dataset by passing command line arguments `ds=<dataset_name>`
+- choose your model (runtime config) by passing command line arguments `runtime=<runtime_name>`
 
 [comment]: <> (  > Pay attention to the leading `+` of the arguments. `+` is necessary to **add the argument to the config dict** when this argument is not added to the `defaults` list in `config.yaml`.)
 
-- (not necessary) modify extra general configs if you want, for example: `aug=crop512`
-- (not necessary) modify any config option if you want, for example: `aug.resize=true gpu=[1,2]`. Note that if the
+- (not necessary) Change extra general configs if you want, for example: `aug=crop512` or `aug.resize=true gpu=[1,2]`. Note that if the
   arguments conflict, the previous argument will be overwritten by the later one.
 
 Finally, your command looks like:
@@ -71,35 +75,23 @@ Finally, your command looks like:
 python train.py ds=my_data runtime=deeplpf.config1 aug=resize runtime.loss.ltv=0.001 gpu=2 name=demo1
 ```
 
-You could run this command in bash or zsh, but a better way is to run in `vsh`: a simple "shell" only for this project.
-For more details, see the [Running in vsh](#running) part.
+You could run this command in bash or zsh, but a better way is to run in `vsh`: a simple "shell"  for `vielab`. For more details, see the [Running in vsh](#running) part.
 
-### Testing and evaluation
+### Test and evaluation
 
-Assume that you have created config files for training a model. I suggest you only change those necessary parameters
-when testing/evaluating the same model (like `name` and `checkpoint_path`). Just left other parameters their default
-value and don't care about them. indeed, when you do so, some parameters for training like `num_epoch`, `valid_every`
-will also be loaded at the same time, but it's OK because `test.py` and `eval.py` will ignore them.
-
-If you want to define some extra necessary parameters for testing/evaluation other than training parameters, you could
-create a new `yaml` in `runtime` group.
+Assume that you have created config files for training a model. You only need to change those necessary parameters
+to switch to test/evaluation mode for the same model (like `name`, `runtime`, `ds` and `checkpoint_path`). Just left other parameters their default
+value and don't care about them. Indeed, when you do so, some parameters for training like `num_epoch`, `valid_every`
+will also be passed, but it's OK because `test.py` will ignore them.
 
 ### Use logger
 
-The project uses `comet_ml` as experiment logger. Before running, make sure you have an account in comet_ml and set the
-environment variables as follows:
-
-```shell
-export COMET_API_KEY=<your_api_key>
-export COMET_WORKSPACE=<your_workspace>
-```
-
-If you don't have `comet_ml` account, you could use other loggers supported by `pytorch-lightning` if you want.
+The project uses `wandb` as experiment logger. Before running, make sure you have an account in `wandb`. At the first running, `wandb` will require you to login the account.
 
 ### `LightningModule.log`
 
-When you create your new model class, you could call `self.log(name, value, on_step, on_epoch)` in
-your `LightningModule` class to auto-log the metrics to the comet logger. In pytorch-lightning doc:
+When creating new model class in `model/`, you could call `self.log(name, value, on_step, on_epoch)` in
+your `LightningModule` class to auto-log the metrics to the `wandb` logger. In pytorch-lightning doc:
 
 > Depending on where log is called from, Lightning auto-determines the correct logging mode for you.
 
@@ -122,24 +114,21 @@ python train.py [OTHER_ARGS...] gpu=2
 # don't use gpu
 python train.py [OTHER_ARGS...] gpu=0     
 
-# use gpu1, gpu2 and gpu3 (Note that the quotes are necessary!)
-python train.py [OTHER_ARGS...] gpu='[1,2,3]'   
+# use gpu1, gpu2 and gpu3
+python train.py [OTHER_ARGS...] gpu=[1,2,3]   
 ```
 
 ### Reference
 
 If you are still confused about the config process of the project, I recommend you to
-read [Hydra documentation](https://hydra.cc/docs/intro). Trust me, although `Hydra` looks more complicated, it's much
+read [Hydra documentation](https://hydra.cc/docs/intro). Although `Hydra` looks more complicated, it's much
 better than `argparse` in deep learning project.
 
 ## <a name="running"></a> Running in `vsh`
 
-In the `Config your model`, I have told you how to train or test a model using `Hydra`. However, a better way is to run
-the command in `vsh`.
+`Hydra` is wonderful but running `Hydra` app in `bash` is annoying cause auto-completion is not supported. So I develop `vsh`with `prompt_toolkit` to solve the problem.
 
-Because arguments auto-completion and path completion is not supported by hydra, it is so annoying to enter extremely
-long arguments in shell. So I implement `vsh` with `prompt_toolkit` to solve the problem, which supports path
-completion, argument completion, input history suggestion, and even multi-level argument search! Try and enjoy it by
+`vsh` supports path completion, argument completion, input history suggestion, and even dynamic `yaml` argument completion! Try and enjoy it by
 running:
 
 ```shell
@@ -150,9 +139,8 @@ running:
 ./vsh test
 ```
 
-then you will enter a "shell" to input all the arguments with amazing auto-completion. Path completion is supported for
-arguments `ds.GT`, `ds.input` and `checkpoint_path`. See the demo gif:
+Path completion is supported for arguments `ds.GT`, `ds.input` and `checkpoint_path`. See the demo gif:
 
 ![demo gif](figures/output.gif)
 
-You can also press `up` and `down` to toggle in history commands or press `Ctrl + r` to search in history like in bash.
+You could also press `up` and `down` to toggle in history commands or press `Ctrl + r` to search in history like bash.

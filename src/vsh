@@ -205,7 +205,10 @@ class VashCompleter(Completer):
 
 
 def bottom_toolbar():
-    return HTML('Important args: name, ds, valid_ds, runtime, aug, num_epoch, log_every, valid_every')
+    if mode == TRAIN:
+        return HTML('Important args: name, ds, valid_ds, runtime, aug, num_epoch, log_every, valid_every')
+    else:
+        return HTML('Important args: name, ds, runtime, checkpoint_path, aug')
 
 
 def get_field_words(field):

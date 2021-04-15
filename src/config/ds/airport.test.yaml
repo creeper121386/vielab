@@ -1,0 +1,5 @@
+# @package _group_
+
+name: airport
+GT: false
+input: /data1/why/data/airport-frames/*/*
