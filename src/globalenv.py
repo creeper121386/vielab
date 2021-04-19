@@ -80,6 +80,7 @@ CONTRAST_ADJUST = 'contrast_adjust'
 DEEP_LPF = 'deeplpf'
 IA3DLUT = '3dlut'
 ZERODCE = '0dce'
+HDRNET = 'hdrnet'
 
 # config.runtime.deeplpf.*
 PREDICT_ILLUMINATION = 'predict_illumination'
@@ -104,6 +105,14 @@ TEST_PTH = 'test_pth'
 # config.runtime.0zero.*
 WEIGHT_DECAY = 'weight_decay'
 GRAD_CLIP_NORM = 'grad_clip_norm'
+
+# config.runtime.hdrnet.*
+LUMA_BINS = 'luma_bins'
+CHANNEL_MULTIPLIER = 'channel_multiplier'
+SPATIAL_BIN = 'spatial_bin'
+BATCH_NORM = 'batch_norm'
+NET_INPUT_SIZE = 'net_input_size'
+LOW_RESOLUTION = 'low_resolution'
 
 # running mode
 TRAIN = 'train'

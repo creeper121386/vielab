@@ -1,5 +1,5 @@
 # @package _group_
 
 name: fulldata0329
-GT: /data1/why/data/fulldata-0329/train/gt/*
+GT: /data1/why/data/fulldata-0329/train/output/*
 input: /data1/why/data/fulldata-0329/train/input/*

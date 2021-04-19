@@ -1,0 +1,5 @@
+# @package _group_
+
+name: style_transfer
+GT: /data1/why/data/paired-scene-fast-selected/stylized/[123567890]*.png
+input: /data1/why/data/paired-scene-fast-selected/[123567890]*.png

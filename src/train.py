@@ -53,7 +53,7 @@ def main(config):
 
     # Loading data:
     transform = parseAugmentation(opt)
-    training_dataset = ImagesDataset(opt, data_dict=None, ds_type=DATA, transform=transform)
+    training_dataset = ImagesDataset(opt, ds_type=DATA, transform=transform)
     trainloader = torch.utils.data.DataLoader(
         training_dataset,
         batch_size=opt[BATCHSIZE],
@@ -63,7 +63,7 @@ def main(config):
 
     valid_loader = None
     if opt[VALID_DATA] and opt[VALID_DATA][INPUT]:
-        valid_dataset = ImagesDataset(opt, data_dict=None, ds_type=VALID_DATA, transform=transform)
+        valid_dataset = ImagesDataset(opt, ds_type=VALID_DATA, transform=transform)
         valid_loader = torch.utils.data.DataLoader(
             valid_dataset,
             batch_size=opt[VALID_BATCHSIZE],

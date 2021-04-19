@@ -1,0 +1,13 @@
+# @package _group_
+
+modelname: hdrnet
+predict_illumination: false
+loss:
+  ltv: 0.1
+  cos: false
+
+luma_bins: 8
+channel_multiplier: 1
+spatial_bin: 16
+batch_norm: true
+low_resolution: 256

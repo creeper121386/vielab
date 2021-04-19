@@ -1,0 +1,4 @@
+# @package _group_
+
+GT: /data1/why/data/paired-scene-fast-selected/stylized/4*.png
+input: /data1/why/data/paired-scene-fast-selected/4*.png

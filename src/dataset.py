@@ -8,30 +8,40 @@ import torch
 from globalenv import *
 
 
-class ImagesDataset(torch.utils.data.Dataset):
-    def load_from_glob_list(self, globs):
-        if type(globs) == str:
-            return sorted(glob(globs))
-        elif type(globs) == list:
-            res = []
-            for g in globs:
-                res.extend(glob(g))
-            return sorted(res)
-        else:
-            raise TypeError(
-                f'ERR: Argument `ds.GT` or `ds.input` has wrong type: expect `str` or `list` but get {type(globs)}')
+def load_from_glob_list(globs):
+    if type(globs) == str:
+        return sorted(glob(globs))
 
-    def __init__(self, opt, data_dict, ds_type=DATA, transform=None):
+    elif type(globs) == list:
+        res = []
+        for g in globs:
+            res.extend(glob(g))
+        return sorted(res)
+    else:
+        raise TypeError(
+            f'ERR: Argument `ds.GT` or `ds.input` has wrong type: expect `str` or `list` but get {type(globs)}')
+
+
+def augment_one_img(img, seed, transform=None):
+    img = img.astype(np.uint8)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if transform:
+        img = transform(img)
+    return img
+
+
+class ImagesDataset(torch.utils.data.Dataset):
+
+    def __init__(self, opt, ds_type=DATA, transform=None):
         """Initialisation for the Dataset object
 
-        :param data_dict: dictionary of dictionaries containing images
         :param transform: PyTorch image transformations to apply to the images
         :returns: N/A
         :rtype: N/A
 
         """
         self.transform = transform
-        self.data_dict = data_dict
         self.opt = opt
 
         gt_globs = opt[ds_type][GT]
@@ -42,25 +52,17 @@ class ImagesDataset(torch.utils.data.Dataset):
         console.log(f'[[{ds_type}]] Input Directory path: [yellow]{input_globs}[/yellow]')
 
         # load input images:
-        self.input_list = self.load_from_glob_list(input_globs)
+        self.input_list = load_from_glob_list(input_globs)
 
         # load GT images:
         if self.have_gt:
-            self.gt_list = self.load_from_glob_list(gt_globs)
+            self.gt_list = load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
         console.log(f'[[{ds_type}]] Dataset length: {self.__len__()}, Batch num: {self.__len__() // opt[BATCHSIZE]}')
 
     def __len__(self):
         return (len(self.input_list))
-
-    def augment_one_img(self, img, seed):
-        img = img.astype(np.uint8)
-        random.seed(seed)
-        torch.manual_seed(seed)
-        if self.transform:
-            img = self.transform(img)
-        return img
 
     def debug_save_item(self, input, gt):
         from toolbox import util
@@ -84,12 +86,12 @@ class ImagesDataset(torch.utils.data.Dataset):
         seed = random.randint(0, 100000)
 
         input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
-        input_img = self.augment_one_img(input_img, seed)
+        input_img = augment_one_img(input_img, seed)
         res_item[INPUT] = input_img
 
         if self.have_gt:
             gt_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
-            gt_img = self.augment_one_img(gt_img, seed)
+            gt_img = augment_one_img(gt_img, seed)
             res_item[GT] = gt_img
 
         return res_item

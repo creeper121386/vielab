@@ -37,7 +37,7 @@ def main(opt):
             console.log('Ignore and set transform=None...')
             transform = torchvision.transforms.ToTensor()
 
-    ds = ImagesDataset(opt, data_dict=None, ds_type=DATA, transform=transform)
+    ds = ImagesDataset(opt, ds_type=DATA, transform=transform)
     dataloader = torch.utils.data.DataLoader(
         ds,
         batch_size=1,

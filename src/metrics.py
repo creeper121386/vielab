@@ -14,6 +14,7 @@ usage: python metrics.py '<glob1>' '<glob2>'
 
 assert len(sys.argv) == 3
 assert '~' not in sys.argv[1] and '~' not in sys.argv[2]
+file = osp.join(METRICS_LOG_DIRPATH, f'metrics-{sys.argv[1].replace("/", ".")}-and-{sys.argv[2].replace("/", ".")}.csv')
 folder1 = glob(sys.argv[1])
 folder2 = glob(sys.argv[2])
 
@@ -25,12 +26,11 @@ metrics = {
 }
 console.log(f'[*] Metrics: {list(metrics.keys())}')
 
-file = osp.join(METRICS_LOG_DIRPATH, f'metrics-{folder1.replace("/", ".")}-and-{folder2.replace("/", ".")}.csv')
-f = open(file, 'w+')
+f = open(file, 'w')
 f.write('fname1,fname2,' + ','.join(list(metrics.keys())) + '\n')
 for x, y in zip(folder1, folder2):
     i += 1
-    console.log(f'[{i}] Now running: {x} and {y}')
+    console.log(f'[[{i}]] Now running: {x} and {y}')
     im1 = np.array(Image.open(x))
     im2 = np.array(Image.open(y))
     f.write(f'{x},{y}')

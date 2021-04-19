@@ -4,12 +4,14 @@ from globalenv import *
 from .deeplpf import DeepLpfLitModel
 from .ia3dlut import IA3DLUTLitModel
 from .zerodce import ZeroDCELitModel
+from .hdrnet import HDRnetLitModel
 
 # from .ia3dlut import
 MODEL_ZOO = {
     DEEP_LPF: DeepLpfLitModel,
     IA3DLUT: IA3DLUTLitModel,
-    ZERODCE: ZeroDCELitModel
+    ZERODCE: ZeroDCELitModel,
+    HDRNET:HDRnetLitModel,
 }
 
 # extra required arguments for each model:
@@ -33,6 +35,21 @@ RUNTIME_NECESSARY_ARGUMENTS = {
     ],
 
     ZERODCE: [
-        MODELNAME
+        MODELNAME,
+        PREDICT_ILLUMINATION,
+        WEIGHT_DECAY,
+        GRAD_CLIP_NORM,
+        TEST_PTH
+    ],
+
+    HDRNET: [
+        MODELNAME,
+        LOSS,
+        PREDICT_ILLUMINATION,
+        LUMA_BINS,
+        CHANNEL_MULTIPLIER,
+        SPATIAL_BIN,
+        BATCH_NORM,
+        LOW_RESOLUTION
     ]
 }
