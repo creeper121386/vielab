@@ -90,18 +90,16 @@ class DeepLpfLitModel(BaseModel):
         # save images
         # note: self.global_step increases in training_step only, not effected by validation.
         if self.global_step % self.opt[LOG_EVERY] == 0:
-            # TODO: 解决dlpf训练会崩的问题（猜测是crop size或batchsize的原因）
-            # TODO: 添加unet
             fname = f'epoch{self.current_epoch}_iter{self.global_step}_{osp.basename(fpaths[0])}.png'
-            self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
-            self.logger_buffer_add_img(TRAIN, output, TRAIN, OUTPUT, fname)
-            self.logger_buffer_add_img(TRAIN, gt_batch, TRAIN, GT, fname)
+            self.add_img_to_buffer(TRAIN, input_batch, TRAIN, INPUT, fname)
+            self.add_img_to_buffer(TRAIN, output, TRAIN, OUTPUT, fname)
+            self.add_img_to_buffer(TRAIN, gt_batch, TRAIN, GT, fname)
 
             self.save_one_img_of_batch(output, self.opt[IMG_DIRPATH], fname)
 
             # save illumination map
             if illumination is not None:
-                self.logger_buffer_add_img(TRAIN, illumination, TRAIN, PREDICT_ILLUMINATION, fname)
+                self.add_img_to_buffer(TRAIN, illumination, TRAIN, PREDICT_ILLUMINATION, fname)
                 self.save_one_img_of_batch(illumination, self.illumination_dirpath, fname)
 
             self.commit_logger_buffer(TRAIN)
@@ -369,7 +367,6 @@ class DeepLPFLoss(nn.Module):
             deeplpf_loss += cos_loss
         # ─────────────────────────────────────────────────────────────────
 
-        # import ipdb; ipdb.set_trace()
         self.losses[LOSS] = deeplpf_loss
         return deeplpf_loss
 

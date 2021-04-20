@@ -9,10 +9,11 @@ enhancement methods:
 
 |Model|Source|Paper
 |:---:|:---:|:---:
-|DeepLPF|[github repo](https://github.com/sjmoran/DeepLPF)|[paper link](https://arxiv.org/abs/2003.13985)
-|3D-LUT|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[paper link](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf)
-|ZeroDCE| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) 
-|UNet| - | - 
+|deeplpf|[github repo](https://github.com/sjmoran/DeepLPF)|[paper link](https://arxiv.org/abs/2003.13985)
+|ia3dlut|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[paper link](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf)
+|zerodce| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) 
+|unet| - | - 
+|hdrnet| [github repo (unofficial)](https://github.com/creotiv/hdrnet-pytorch) | [paper link](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf)
 
 The code architecture of this project is applicable to **ANY** model whose input and output are images, like de-noising,
 HDR, super resolution, and other kinds of enhancement.
@@ -84,6 +85,8 @@ to switch to test/evaluation mode for the same model (like `name`, `runtime`, `d
 value and don't care about them. Indeed, when you do so, some parameters for training like `num_epoch`, `valid_every`
 will also be passed, but it's OK because `test.py` will ignore them.
 
+## logging
+
 ### Use logger
 
 The project uses `wandb` as experiment logger. Before running, make sure you have an account in `wandb`. At the first running, `wandb` will require you to login the account.
@@ -101,7 +104,14 @@ by default.
 
 So just call `self.log(name, value)` and leaving the arguments' default values is OK.
 
-### Use GPU
+## log images
+
+Create your pytorch-lightning module from `model.BaseModel`. Use following methods to log your images:
+
+- `self.save_one_img_of_batch(batch, dirpath, fname)`: save `batch[0]` to disk.
+- `log_images_dict(mode, input_fname, img_batch_dict)`: save images in `img_batch_dict` to disk and remote logger.
+
+## Use GPU
 
 Argument `gpu` can be an integer which means number of gpus to train on, or a list which GPUs to train on.
 
@@ -118,7 +128,7 @@ python train.py [OTHER_ARGS...] gpu=0
 python train.py [OTHER_ARGS...] gpu=[1,2,3]   
 ```
 
-### Reference
+## Reference
 
 If you are still confused about the config process of the project, I recommend you to
 read [Hydra documentation](https://hydra.cc/docs/intro). Although `Hydra` looks more complicated, it's much

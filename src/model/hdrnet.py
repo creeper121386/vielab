@@ -1,4 +1,3 @@
-import os
 import os.path as osp
 
 import torch.optim as optim
@@ -12,27 +11,18 @@ from .basic_loss import LTVloss
 
 class HDRnetLitModel(BaseModel):
     def __init__(self, opt):
-        super().__init__(opt, [TRAIN])
-        if opt[AUGMENTATION][DOWNSAMPLE] != [512, 512]:
-            console.log(
-                f'[yellow]HDRnet requires input image size must be [512, 512], However your augmentation mathod is: \n{opt[AUGMENTATION]}. \nMake sure you do the correct augmentation! (Press enter to continue)[/yellow]')
-            input()
+        super().__init__(opt, [TRAIN, VALID])
+        # if opt[AUGMENTATION][DOWNSAMPLE] != [512, 512]:
+        #     console.log(
+        #         f'[yellow]HDRnet requires input image size must be [512, 512], However your augmentation mathod is: \n{opt[AUGMENTATION]}. \nMake sure you do the correct augmentation! (Press enter to ignore and continue running.)[/yellow]')
+        #     input()
 
         self.net = HDRPointwiseNN(opt[RUNTIME])
-        self.losses = {
-            L1_LOSS: 0,
-            LTV_LOSS: 0,
-            COS_LOSS: 0,
-            LOSS: 0
-        }
         self.down_sampler = Resize([opt[RUNTIME][LOW_RESOLUTION]])
-
-        # self.illumination_dirpath = os.path.join(opt[LOG_DIRPATH], PREDICT_ILLUMINATION)
-        # if opt[RUNTIME][PREDICT_ILLUMINATION]:
-        #     util.mkdir(self.illumination_dirpath)
+        self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
 
         self.mse = torch.nn.MSELoss()
-        self.ltvloss = LTVloss()
+        self.ltv = LTVloss()
         self.cos = torch.nn.CosineSimilarity(1, 1e-8)
         self.net.train()
 
@@ -44,85 +34,91 @@ class HDRnetLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        # watch model gradients:
-        # if not self.MODEL_WATCHED:
-        #     self.logger.watch(self.net)
-        #     self.MODEL_WATCHED = True
-
         input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)
-        mse_loss = self.mse(output_dict, gt_batch)
+        mse_loss = self.mse(output_batch, gt_batch)
 
-        # todo: 本行以下代码还没改
+        loss = mse_loss
+        logged_losses = {MSE: mse_loss}
 
-        illumination = None if not self.opt[RUNTIME][PREDICT_ILLUMINATION] else output_dict[PREDICT_ILLUMINATION]
-        self.training_step_logging(input_batch, gt_batch, output, fpaths, illumination)
+        # add cos loss
+        cos_weight = self.opt[RUNTIME][LOSS][COS_LOSS]
+        if cos_weight:
+            cos_loss = cos_weight * self.cos(output_batch, gt_batch).mean()
+            loss += cos_loss
+            logged_losses[COS_LOSS] = cos_loss
+
+        # add ltv loss
+        ltv_weight = self.opt[RUNTIME][LOSS][LTV_LOSS]
+        if self.use_illu and ltv_weight:
+            tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weights)
+            loss += tv_loss
+            logged_losses[LTV_LOSS] = tv_loss
+        logged_losses[LOSS] = loss
+
+        # logging:
+        self.log_dict(logged_losses)
+        self.log_images_dict(
+            TRAIN,
+            osp.basename(fpaths[0]),
+            {
+                INPUT: input_batch,
+                OUTPUT: output_batch,
+                GT: gt_batch,
+                PREDICT_ILLUMINATION: self.net.illu_map
+            }
+        )
         return loss
 
-    def training_step_logging(self, input_batch, gt_batch, output, fpaths, illumination):
-        '''
-        ! logging AVERAGE value of self.losses of current step.
-        '''
+    def validation_step(self, batch, batch_idx):
+        self.global_valid_step += 1
+        input_batch, gt_batch, fname = batch[INPUT], batch[GT], batch[FPATH][0]
+        low_res_batch = self.down_sampler(input_batch)
+        output_batch = self.net(low_res_batch, input_batch)
 
-        # for logging loss:
-        this_losses = self.criterion.get_current_loss()
-        for k in self.losses:
-            if this_losses[k] is not None:
-                # TODO: 多卡训练时，这里报错两个tensor分别在两块卡上：
-                self.losses[k] = this_losses[k]
-            else:
-                self.losses[k] = STRING_FALSE
+        # log metrics
+        if self.global_valid_step % 100 == 0:
+            psnr = util.ImageProcessing.compute_psnr(
+                util.cuda_tensor_to_ndarray(output_batch),
+                util.cuda_tensor_to_ndarray(gt_batch), 1.0
+            )
+            self.log(PSNR, psnr)
 
-        # log to the terminal and logger
-        for x, y in self.losses.items():
-            if y != STRING_FALSE:
-                # `self.log_dict` will cause key error.
-                self.log(x, y, prog_bar=True, on_step=True, on_epoch=False)
-
-        # save images
-        # note: self.global_step increases in training_step only, not effected by validation.
-        if self.global_step % self.opt[LOG_EVERY] == 0:
-            # TODO: 解决dlpf训练会崩的问题（猜测是crop size或batchsize的原因）
-            # TODO: 添加unet
-            fname = f'epoch{self.current_epoch}_iter{self.global_step}_{osp.basename(fpaths[0])}.png'
-            self.logger_buffer_add_img(TRAIN, input_batch, TRAIN, INPUT, fname)
-            self.logger_buffer_add_img(TRAIN, output, TRAIN, OUTPUT, fname)
-            self.logger_buffer_add_img(TRAIN, gt_batch, TRAIN, GT, fname)
-
-            self.save_one_img_of_batch(output, self.opt[IMG_DIRPATH], fname)
-
-            # save illumination map
-            if illumination is not None:
-                self.logger_buffer_add_img(TRAIN, illumination, TRAIN, PREDICT_ILLUMINATION, fname)
-                self.save_one_img_of_batch(illumination, self.illumination_dirpath, fname)
-
-            self.commit_logger_buffer(TRAIN)
+        # log images
+        self.log_images_dict(
+            VALID,
+            osp.basename(fname),
+            {
+                INPUT: input_batch,
+                OUTPUT: output_batch,
+                GT: gt_batch,
+                PREDICT_ILLUMINATION: self.net.illu_map
+            }
+        )
+        return output_batch
 
     def test_step(self, batch, batch_ix):
         # test without GT image:
         input_batch, fname = batch[INPUT], batch[FPATH][0]
-        output_dict = self.net(input_batch)
-        output = torch.clamp(output_dict[OUTPUT], 0.0, 1.0)
-
-        util.saveTensorAsImg(output, os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname)))
-        if PREDICT_ILLUMINATION in output_dict:
-            util.saveTensorAsImg(
-                output_dict[PREDICT_ILLUMINATION],
-                os.path.join(self.illumination_dirpath, osp.basename(fname))
-            )
+        assert input_batch.shape[0] == 1
+        low_res_batch = self.down_sampler(input_batch)
+        output_batch = self.net(low_res_batch, input_batch)
+        self.save_one_img_of_batch(
+            output_batch, self.opt[IMG_DIRPATH], osp.basename(fname))
 
         # test with GT:
         if GT in batch:
             # calculate metrics:
-            output_ = util.cuda_tensor_to_ndarray(output)
+            output_ = util.cuda_tensor_to_ndarray(output_batch)
             y_ = util.cuda_tensor_to_ndarray(batch[GT])
             psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
             ssim = util.ImageProcessing.compute_ssim(output_, y_)
-            self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True)
+            self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True, on_step=True, on_epoch=True)
 
     def forward(self, x):
-        return self.net(x)
+        low_res_x = self.down_sampler(x)
+        return self.net(low_res_x, x)
 
 
 import torch
@@ -169,6 +165,7 @@ class Slice(nn.Module):
         super(Slice, self).__init__()
 
     def forward(self, bilateral_grid, guidemap):
+        # import ipdb;ipdb.set_trace()
         # Nx12x8x16x16
         device = bilateral_grid.get_device()
         N, _, H, W = guidemap.shape
@@ -181,18 +178,12 @@ class Slice(nn.Module):
         guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
         guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
-        # >>> origin
-        # import ipdb; ipdb.set_trace()
-        # ???????这里为什么input, grid对应的是grid, guidemap啊
+        # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
         coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
         # bilateral_grid shape: [1, 12, 8, 16, 16]
         # guidemap_guide shape: [1, 1, 1080, 1920, 3]
         # coeff shape: [1, 12, 1, 1080, 1920]
-
-        # >>> our implementation
-        # coeff = bilinear_interpolate_torch_2D(
-        #    bilateral_grid, guidemap_guide, align_corners=True)
 
         return coeff.squeeze(2)
 
@@ -208,7 +199,6 @@ class ApplyCoeffs(nn.Module):
             g = a21*r + a22*g + a23*b + a24
             ...
         '''
-
         R = torch.sum(full_res_input * coeff[:, 0:3, :, :], dim=1, keepdim=True) + coeff[:, 3:4, :, :]
         G = torch.sum(full_res_input * coeff[:, 4:7, :, :], dim=1, keepdim=True) + coeff[:, 7:8, :, :]
         B = torch.sum(full_res_input * coeff[:, 8:11, :, :], dim=1, keepdim=True) + coeff[:, 11:12, :, :]
@@ -306,8 +296,6 @@ class Coeffs(nn.Module):
         fusion_global = global_features.view(bs, 8 * cm * lb, 1, 1)
         fusion = self.relu(fusion_grid + fusion_global)
 
-        # import ipdb; ipdb.set_trace()
-
         x = self.conv_out(fusion)
         s = x.shape
         y = torch.stack(torch.split(x, self.nin * self.nout, 1), 2)
@@ -322,6 +310,7 @@ class HDRPointwiseNN(nn.Module):
 
     def __init__(self, params):
         super(HDRPointwiseNN, self).__init__()
+        self.opt = params
         self.coeffs = Coeffs(params=params)
         self.guide = GuideNN(params=params)
         self.slice = Slice()
@@ -335,14 +324,12 @@ class HDRPointwiseNN(nn.Module):
         out = self.apply_coeffs(slice_coeffs, fullres)
         # out = bsa.bsa(coeffs,guide,fullres)
 
-        # >>>Using illumination!<<
-        import sys
-        sys.stdout.write('\r>>>Using illumination!<<<')
-        # import ipdb; ipdb.set_trace()
-        self.illumination_map = out
-        input = fullres
-        out = input / (torch.where(out < input, input, out) + 1e-7)
-        # >>>Using illumination!<<
+        # >>> Using illumination! <<<
+        if self.opt[PREDICT_ILLUMINATION]:
+            self.illu_map = out
+            out = fullres / (torch.where(out < fullres, fullres, out) + 1e-7)
+        else:
+            self.illu_map = None
 
         return out
 

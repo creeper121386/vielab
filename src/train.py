@@ -31,6 +31,7 @@ def main(config):
             DATALOADER_NUM_WORKER: 0,
             NAME: DEBUG,
             LOG_EVERY: 1,
+            VALID_EVERY: 1,
             NUM_EPOCH: 2
         }
         opt.update(debug_config)
@@ -88,7 +89,8 @@ def main(config):
         project='vielab',
         notes=None if not opt[COMMENT] else opt[COMMENT],
         # tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
-        tags = [opt[RUNTIME][MODELNAME], opt[DATA][NAME]]
+        tags = [opt[RUNTIME][MODELNAME], opt[DATA][NAME]],
+        save_dir='../'
     )
 
     # init trainer:

@@ -86,12 +86,13 @@ class ImagesDataset(torch.utils.data.Dataset):
         seed = random.randint(0, 100000)
 
         input_img = cv2.imread(self.input_list[idx])[:, :, [2, 1, 0]]
-        input_img = augment_one_img(input_img, seed)
+        input_img = augment_one_img(input_img, seed, transform=self.transform)
         res_item[INPUT] = input_img
 
         if self.have_gt:
             gt_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
-            gt_img = augment_one_img(gt_img, seed)
+            gt_img = augment_one_img(gt_img, seed, transform=self.transform)
             res_item[GT] = gt_img
+
 
         return res_item

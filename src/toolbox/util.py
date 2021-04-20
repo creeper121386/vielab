@@ -169,6 +169,8 @@ def calculate_ssim(img1, img2):
 
 
 def configLogging(mode, opt):
+    # mode: train or test
+
     log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[NAME]}" \
         # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)
     img_dirpath = osp.join(log_dirpath, IMAGES)

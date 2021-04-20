@@ -4,7 +4,7 @@ modelname: hdrnet
 predict_illumination: false
 loss:
   ltv: 0.1
-  cos: false
+  cos: 0.1
 
 luma_bins: 8
 channel_multiplier: 1

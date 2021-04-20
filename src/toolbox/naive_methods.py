@@ -23,7 +23,6 @@ class HistEq:
         pass
 
     def process_one(self, img):
-        # import ipdb; ipdb.set_trace()
         for i in range(3):
             one_channel_img = img[:, :, i]
             img[:, :, i] = cv2.equalizeHist(img[:, :, i])
@@ -36,7 +35,6 @@ class CLAHE:
         self.clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
 
     def process_one(self, img):
-        # import ipdb; ipdb.set_trace()
         for i in range(3):
             one_channel_img = img[:, :, i]
             img[:, :, i] = self.clahe.apply(img[:, :, i])

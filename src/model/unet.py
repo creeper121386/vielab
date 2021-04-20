@@ -45,13 +45,24 @@ class UNetLitModel(BaseModel):
         # logging
         self.train_metrics[L1_LOSS] = loss
         self.log_dict(self.train_metrics)
-        self.log_IOG_images(TRAIN, self.global_step, osp.basename(fpaths[0]), input_batch, output_batch, gt_batch)
+        self.log_images_dict(
+            TRAIN,
+            osp.basename(fpaths[0]),
+            {
+                INPUT: input_batch,
+                OUTPUT: output_batch,
+                GT: gt_batch
+            }
+        )
 
         return loss
 
     def validation_step(self):
         # TODO: finish here.
         pass
+
+    def test_step(self):
+        ...
 
 
 class UNet(nn.Module):

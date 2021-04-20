@@ -6,7 +6,7 @@ num_epoch: 1000
 gpu: 1                    # number of gpus to train on (int) or which GPUs to train on (list or str) applied
 
 valid_every: 10           # validate every N epochs
-log_every: 100            # log your message, curve or images every N epochs or iteration
+log_every: 100            # log your message, curve or images every N steps
 
 dataloader_num_worker: 16
 batchsize: 4

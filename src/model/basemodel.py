@@ -20,6 +20,9 @@ class BaseModel(pl.core.LightningModule):
 
         self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
         util.mkdir(self.train_img_dirpath)
+        self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
+        util.mkdir(self.valid_img_dirpath)
+
         if opt[VALID_DATA][INPUT]:
             self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
             util.mkdir(self.valid_img_dirpath)
@@ -45,24 +48,41 @@ class BaseModel(pl.core.LightningModule):
         # img = util.saveTensorAsImg(batch[0], imgpath)
         torchvision.utils.save_image(batch[0], imgpath)
 
-    def log_IOG_images(self, mode, step, fname, input_batch, output_batch, gt_batch):
+    def log_images_dict(self, mode, input_fname, img_batch_dict):
         '''
-        log_IOG_images means: log input, output and gt images to local disk and remote wandb logger.
+        log input, output and gt images to local disk and remote wandb logger.
         mode: TRAIN or VALID
         '''
-        if step % self.opt[LOG_EVERY] == 0:
-            fname = osp.basename(fname) + f'_epoch{self.current_epoch}_iter{step}.png'
-            if mode == VALID:
-                self.save_one_img_of_batch(output_batch, self.valid_img_dirpath, fname)
-            elif mode == TRAIN:
-                self.save_one_img_of_batch(output_batch, self.train_img_dirpath, fname)
+        if mode == VALID:
+            local_dirpath = self.valid_img_dirpath
+            step = self.global_valid_step
+            if self.global_valid_step == 0:
+                console.log(
+                    'WARN: Found global_valid_step=0. Maybe you foget to increase `self.global_valid_step` in `self.validation_step`?')
+        elif mode == TRAIN:
+            local_dirpath = self.train_img_dirpath
+            step = self.global_step
 
-            self.logger_buffer_add_img(mode, input_batch, mode, INPUT, fname)
-            self.logger_buffer_add_img(mode, output_batch, mode, OUTPUT, fname)
-            self.logger_buffer_add_img(mode, gt_batch, mode, GT, fname)
+        if step % self.opt[LOG_EVERY] == 0:
+            input_fname = osp.basename(input_fname) + f'_epoch{self.current_epoch}_step{step}.png'
+
+            for name, batch in img_batch_dict.items():
+                if batch is None or batch is False:
+                    # image is None or False, skip.
+                    continue
+
+                # save local image:
+                self.save_one_img_of_batch(
+                    batch,
+                    osp.join(local_dirpath, name),  # e.g. ../train_log/train/output
+                    input_fname)
+
+                # save remote image:
+                self.add_img_to_buffer(mode, batch, mode, name, input_fname)
+
             self.commit_logger_buffer(mode)
 
-    def logger_buffer_add_img(self, group_name, batch, *caption):
+    def add_img_to_buffer(self, group_name, batch, *caption):
         if len(batch.shape) == 3:
             # when input is not a batch:
             batch = batch.unsqueeze(0)

@@ -99,7 +99,6 @@ class IA3DLUTLitModel(BaseModel):
             img = img[0].unsqueeze(0)
 
         pred_weights = self.cnn(img).squeeze()
-        # import ipdb; ipdb.set_trace()
 
         # lut device: cpu
         final_LUT = sum([
@@ -120,9 +119,9 @@ class IA3DLUTLitModel(BaseModel):
             elif mode == TRAIN:
                 self.save_one_img_of_batch(output_batch, self.train_img_dirpath, fname)
 
-            self.logger_buffer_add_img(mode, input_batch, mode, INPUT, fname)
-            self.logger_buffer_add_img(mode, output_batch, mode, OUTPUT, fname)
-            self.logger_buffer_add_img(mode, gt_batch, mode, GT, fname)
+            self.add_img_to_buffer(mode, input_batch, mode, INPUT, fname)
+            self.add_img_to_buffer(mode, output_batch, mode, OUTPUT, fname)
+            self.add_img_to_buffer(mode, gt_batch, mode, GT, fname)
             self.commit_logger_buffer(mode)
 
     def training_step(self, batch, batch_idx):
@@ -403,7 +402,6 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
                                       batch)
 
         # console.log(x)
-        # import ipdb; ipdb.set_trace()
         int_package = torch.IntTensor([dim, shift, W, H, batch]).type_as(x)
         float_package = torch.FloatTensor([binsize]).type_as(x)
         variables = [lut, x, int_package, float_package]
@@ -414,7 +412,6 @@ class TrilinearInterpolationFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, lut_grad, x_grad):
-        # import ipdb; ipdb.set_trace()
         lut, x, int_package, float_package = ctx.saved_variables
         dim, shift, W, H, batch = int_package
         dim, shift, W, H, batch = int(dim), int(shift), int(W), int(H), int(batch)
