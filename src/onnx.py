@@ -51,7 +51,7 @@ def main(config):
         opset_version=12,
         dynamic_axes=dynamic_ax
     )
-    config.log(f'[[ DONE ]] ONNX file {fpath} exported.')
+    console.log(f'[[ DONE ]] ONNX file {fpath} exported.')
 
 
 if __name__ == "__main__":

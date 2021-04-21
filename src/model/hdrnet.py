@@ -3,7 +3,6 @@ import os.path as osp
 import torch.optim as optim
 from globalenv import *
 from toolbox import util
-from torchvision.transforms import Resize
 
 from .basemodel import BaseModel
 from .basic_loss import LTVloss
@@ -19,7 +18,13 @@ class HDRnetLitModel(BaseModel):
 
         self.net = HDRPointwiseNN(opt[RUNTIME])
         low_res = opt[RUNTIME][LOW_RESOLUTION]
-        self.down_sampler = Resize([low_res, low_res])
+
+        # for torch1.7:
+        # self.down_sampler = Resize([low_res, low_res])
+
+        # for torch 1.5:
+        self.down_sampler = lambda x: F.interpolate(x, size=(low_res, low_res), mode='bicubic', align_corners=False)
+
         self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
 
         self.mse = torch.nn.MSELoss()
