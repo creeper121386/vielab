@@ -1,0 +1,7 @@
+# @package _group_
+
+# containing diferent brightness-level images.
+
+name: lol
+GT: /data1/why/data/lol/our485/high/*
+input: /data1/why/data/lol/our485/low/*

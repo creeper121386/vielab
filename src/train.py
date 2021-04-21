@@ -2,7 +2,6 @@
 import logging
 import os
 
-# import comet_ml
 import hydra
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -13,7 +12,7 @@ from dataset import ImagesDataset
 from globalenv import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from toolbox.util import checkConfig, configLogging, server_chan_send
+from toolbox.util import checkConfig, configLogging
 from data_aug import parseAugmentation
 
 from model.model_zoo import MODEL_ZOO
@@ -21,11 +20,9 @@ from model.model_zoo import MODEL_ZOO
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
-    # config and logging:
-    # config = init_config(config)
     opt = checkConfig(config, TRAIN)
-    # tab_complete(opt)
 
+    # update debug config (if in debug mode)
     if opt[DEBUG]:
         debug_config = {
             DATALOADER_NUM_WORKER: 0,
@@ -35,10 +32,11 @@ def main(config):
             NUM_EPOCH: 2
         }
         opt.update(debug_config)
-        console.log('[red]>>>> WARN: You are in debug mode, update configs. <<<<[/red]')
+        console.log('[red]>>>> [[ WARN ]] You are in debug mode, update configs. <<<<[/red]')
         console.log(debug_config)
-        console.log('[red]>>>> WARN: You are in debug mode, update configs. <<<<[/red]')
+        console.log('[red]>>>> [[ WARN ]] You are in debug mode, update configs. <<<<[/red]')
 
+    # logging
     console.log('Running config:', opt, log_locals=False)
     opt[LOG_DIRPATH], opt[IMG_DIRPATH] = configLogging(TRAIN, opt)
     pl_logger = logging.getLogger("lightning")
@@ -89,7 +87,7 @@ def main(config):
         project='vielab',
         notes=None if not opt[COMMENT] else opt[COMMENT],
         # tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
-        tags = [opt[RUNTIME][MODELNAME], opt[DATA][NAME]],
+        tags=[opt[RUNTIME][MODELNAME], opt[DATA][NAME]],
         save_dir='../'
     )
 
@@ -106,11 +104,18 @@ def main(config):
 
     # training loop
     trainer.fit(model, trainloader, val_dataloaders=valid_loader)
+    return opt
 
 
 if __name__ == "__main__":
     try:
-        main()
+        opt = main()
+        send_mail(
+            f'[ DONE ] Training finished: {opt[NAME]}',
+            f'Running arguments: {opt}'
+        )
+
     except Exception as e:
         console.log(e)
-        server_chan_send('[Exception] Training stop.', str(e))
+        # server_chan_send('[Exception] Training stop.', str(e))
+        send_mail('[ ERR ] Training stop by exception.', str(e))

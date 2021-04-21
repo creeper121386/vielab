@@ -18,7 +18,8 @@ class HDRnetLitModel(BaseModel):
         #     input()
 
         self.net = HDRPointwiseNN(opt[RUNTIME])
-        self.down_sampler = Resize([opt[RUNTIME][LOW_RESOLUTION]])
+        low_res = opt[RUNTIME][LOW_RESOLUTION]
+        self.down_sampler = Resize([low_res, low_res])
         self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
 
         self.mse = torch.nn.MSELoss()
@@ -45,14 +46,14 @@ class HDRnetLitModel(BaseModel):
         # add cos loss
         cos_weight = self.opt[RUNTIME][LOSS][COS_LOSS]
         if cos_weight:
-            cos_loss = cos_weight * self.cos(output_batch, gt_batch).mean()
+            cos_loss = cos_weight * (1 - self.cos(output_batch, gt_batch).mean()) * 0.5
             loss += cos_loss
             logged_losses[COS_LOSS] = cos_loss
 
         # add ltv loss
         ltv_weight = self.opt[RUNTIME][LOSS][LTV_LOSS]
         if self.use_illu and ltv_weight:
-            tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weights)
+            tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weight)
             loss += tv_loss
             logged_losses[LTV_LOSS] = tv_loss
         logged_losses[LOSS] = loss
@@ -78,7 +79,7 @@ class HDRnetLitModel(BaseModel):
         output_batch = self.net(low_res_batch, input_batch)
 
         # log metrics
-        if self.global_valid_step % 100 == 0:
+        if self.global_valid_step % 250 == 0:
             psnr = util.ImageProcessing.compute_psnr(
                 util.cuda_tensor_to_ndarray(output_batch),
                 util.cuda_tensor_to_ndarray(gt_batch), 1.0
@@ -160,12 +161,22 @@ class FC(nn.Module):
         return x
 
 
+# for exporting onnx only!
+class FakeGridSampler(nn.Module):
+    def forward(self, bilateral_grid, guidemap_guide):
+        h, w = guidemap_guide.shape[2:4]
+        bs = guidemap_guide.shape[0]
+        return torch.ones([bs, 12, 1, h, w]).type_as(guidemap_guide)
+
+
 class Slice(nn.Module):
-    def __init__(self):
+    def __init__(self, opt):
         super(Slice, self).__init__()
+        self.opt = opt
+        if opt[ONNX_EXPORTING_MODE]:
+            self.fake_grid_sampler = FakeGridSampler()
 
     def forward(self, bilateral_grid, guidemap):
-        # import ipdb;ipdb.set_trace()
         # Nx12x8x16x16
         device = bilateral_grid.get_device()
         N, _, H, W = guidemap.shape
@@ -173,17 +184,25 @@ class Slice(nn.Module):
         if device >= 0:
             hg = hg.to(device)
             wg = wg.to(device)
+
+        # import ipdb;ipdb.set_trace()
         hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
         wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
         guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
-        guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
+        guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
-        # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
-        coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
-
-        # bilateral_grid shape: [1, 12, 8, 16, 16]
-        # guidemap_guide shape: [1, 1, 1080, 1920, 3]
-        # coeff shape: [1, 12, 1, 1080, 1920]
+        if not self.opt[ONNX_EXPORTING_MODE]:
+            # default path.
+            # bilateral_grid shape: [1, 12, 8, 16, 16]
+            # guidemap_guide shape: [1, 1, 1080, 1920, 3]
+            # coeff shape: [1, 12, 1, 1080, 1920]
+            # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
+            coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
+        else:
+            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
+            console.log('>>>>>>>>> [ FATAL WARN ] Use fake grid_sample! <<<<<<<<<<')
+            coeff = self.fake_grid_sampler(bilateral_grid, guidemap_guide)
+            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
 
         return coeff.squeeze(2)
 
@@ -244,7 +263,7 @@ class Coeffs(nn.Module):
 
         # global features
         n_layers_global = int(np.log2(sb / 4))
-        print(n_layers_global)
+        # print(n_layers_global)
         self.global_features_conv = nn.ModuleList()
         self.global_features_fc = nn.ModuleList()
         for i in range(n_layers_global):
@@ -313,7 +332,7 @@ class HDRPointwiseNN(nn.Module):
         self.opt = params
         self.coeffs = Coeffs(params=params)
         self.guide = GuideNN(params=params)
-        self.slice = Slice()
+        self.slice = Slice(params)
         self.apply_coeffs = ApplyCoeffs()
         # self.bsa = bsa.BilateralSliceApply()
 

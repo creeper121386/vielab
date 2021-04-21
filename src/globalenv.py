@@ -8,9 +8,9 @@ console = Console()
 import sys
 
 sys.path.append('./')
-from torch.cuda import is_available as cuda_available
-
-CUDA_AVAILABLE = cuda_available()
+# from torch.cuda import is_available as cuda_available
+#
+# CUDA_AVAILABLE = cuda_available()
 
 ########################################
 ### The following part CAN be edited ###
@@ -113,11 +113,13 @@ SPATIAL_BIN = 'spatial_bin'
 BATCH_NORM = 'batch_norm'
 NET_INPUT_SIZE = 'net_input_size'
 LOW_RESOLUTION = 'low_resolution'
+ONNX_EXPORTING_MODE = 'onnx_exporting_mode'
 
 # running mode
 TRAIN = 'train'
 TEST = 'test'
 VALID = 'valid'
+ONNX = 'onnx'
 
 # file / dir name
 IMAGES = 'images'
@@ -144,6 +146,12 @@ TRAIN_NECESSARY_ARGUMENTS = [
 TEST_NECESSARY_ARGUMENTS = [
     CHECKPOINT_PATH,
 ]
+
+# email info:
+FROM_ADDRESS = '344915973@qq.com'
+TO_ADDRESS = 'hust.why@qq.com'
+SMTP_SERVER = 'smtp.qq.com'
+SMTP_PORT = 465
 
 #############################################
 #### The following part CAN NOT be edited ###

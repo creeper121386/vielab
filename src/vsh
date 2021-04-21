@@ -1,4 +1,4 @@
-#!python
+#! python
 import os
 import os.path as osp
 
@@ -17,7 +17,7 @@ if len(sys.argv) != 2:
     print('Usage: ./vsh <mode>')
     sys.exit()
 mode = sys.argv[1]
-assert mode in [TRAIN, TEST]
+assert mode in [TRAIN, TEST, ONNX]
 
 bindings = KeyBindings()
 
@@ -207,8 +207,10 @@ class VashCompleter(Completer):
 def bottom_toolbar():
     if mode == TRAIN:
         return HTML('Important args: name, ds, valid_ds, runtime, aug, num_epoch, log_every, valid_every')
-    else:
+    elif mode == TEST:
         return HTML('Important args: name, ds, runtime, checkpoint_path, aug')
+    elif mode == ONNX:
+        return HTML('Important args: name, ds, runtime, aug, checkpoint_path')
 
 
 def get_field_words(field):
@@ -237,7 +239,7 @@ def complete_cmd():
         complete_in_thread=True,
         key_bindings=bindings
     )
-    cmd = f'ipython {mode}.py {args}'
+    cmd = f'python {mode}.py {args}'
     console.log(f'Start executing command:\n>>> {cmd.replace("]", "]]").replace("[", "[[")}')
     os.system(cmd)
 

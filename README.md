@@ -104,12 +104,32 @@ by default.
 
 So just call `self.log(name, value)` and leaving the arguments' default values is OK.
 
-## log images
+### log images
 
 Create your pytorch-lightning module from `model.BaseModel`. Use following methods to log your images:
 
 - `self.save_one_img_of_batch(batch, dirpath, fname)`: save `batch[0]` to disk.
 - `log_images_dict(mode, input_fname, img_batch_dict)`: save images in `img_batch_dict` to disk and remote logger.
+
+### Send email
+
+add your smtp server password as env variable `SMTP_PASSWD`:
+
+```shell
+export SMTP_PASSWD=<your_password>
+```
+
+And modify following parts in `globalenv.py`:
+
+```python
+# email info:
+FROM_ADDRESS = '344915973@qq.com'
+TO_ADDRESS = 'hust.why@qq.com'
+SMTP_SERVER = 'smtp.qq.com'
+SMTP_PORT = 465
+```
+
+The mail will be sent once exception occurred or running finished.
 
 ## Use GPU
 

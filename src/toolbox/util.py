@@ -1,22 +1,13 @@
 # -*- coding: utf-8 -*-
-'''
-This is a PyTorch implementation of the CVPR 2020 paper:
-"Deep Local Parametric Filters for Image Enhancement": https://arxiv.org/abs/2003.13985
-
-Please cite the paper if you use this code
-
-Tested with Pytorch 0.3.1, Python 3.5
-
-Authors: Sean Moran (sean.j.moran@gmail.com), 
-         Pierre Marza (pierre.marza@gmail.com)
-
-'''
-import logging
 import os
 import os.path as osp
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 import cv2
-import model.model_zoo as zoo
+# import model.model_zoo as zoo
+from model import model_zoo as zoo
 import numpy as np
 import omegaconf
 import requests
@@ -27,6 +18,26 @@ from matplotlib.image import imread
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
+
+
+def send_mail(title, msg_content):
+    try:
+        msg = MIMEMultipart()
+
+        msg['Subject'] = title
+        msg['From'] = 'vielab-monitor'
+        msg['To'] = TO_ADDRESS
+        msg.attach(MIMEText(msg_content, 'plain'))
+
+        # Send the message via SMTP server.
+        password = os.environ['SMTP_PASSWD']
+        smtp = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+        smtp.login(FROM_ADDRESS, password)
+        smtp.send_message(msg, FROM_ADDRESS, TO_ADDRESS)
+        smtp.quit()
+    except:
+        console.log(f'[[ ERR ]] Failed to send email: from {FROM_ADDRESS} -> {TO_ADDRESS}.')
+        console.log(f'[[ ERR ]] Title: {title}, Content: {msg_content}')
 
 
 # def init_config(opt):
@@ -178,13 +189,9 @@ def configLogging(mode, opt):
     mkdir(log_dirpath)
     mkdir(img_dirpath)
 
-    console.log('Log directory:', log_dirpath)
-    console.log('Image directory:', img_dirpath)
-
-    handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME)), logging.StreamHandler()]
-    logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-
+    # handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME)), logging.StreamHandler()]
+    # logging.basicConfig(
+    #     level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
     # for k, v in opt.items():
     #     logging.info(f'*** Param - {k}: {v}')
 

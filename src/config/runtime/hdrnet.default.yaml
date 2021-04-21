@@ -3,7 +3,7 @@
 modelname: hdrnet
 predict_illumination: false
 loss:
-  ltv: 0.1
+  ltv: 0.1      # only matters when predict_illumination is true.
   cos: 0.1
 
 luma_bins: 8
@@ -11,3 +11,4 @@ channel_multiplier: 1
 spatial_bin: 16
 batch_norm: true
 low_resolution: 256
+onnx_exporting_mode: false  # use fake grid_sample layer instead torch.nn.functional
