@@ -9,14 +9,12 @@ from dataset import ImagesDataset
 from globalenv import *
 from model.model_zoo import MODEL_ZOO
 from pytorch_lightning import Trainer
-from toolbox.util import checkConfig, configLogging
+from util import checkConfig
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
     opt = checkConfig(opt, TEST)
-    opt[LOG_DIRPATH], opt[IMG_DIRPATH] = configLogging(TEST, opt)
-
     pl_logger = logging.getLogger("lightning")
     pl_logger.propagate = False
 
@@ -24,6 +22,7 @@ def main(opt):
 
     assert opt[CHECKPOINT_PATH]
     model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
+    opt[IMG_DIRPATH] = model.build_test_res_dir()
     console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
 
     transform = parseAugmentation(opt)

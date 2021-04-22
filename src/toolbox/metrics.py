@@ -5,7 +5,7 @@ from glob import glob
 import numpy as np
 from PIL import Image
 from globalenv import PSNR, SSIM, console, METRICS_LOG_DIRPATH
-from toolbox.util import calculate_psnr, calculate_ssim
+from util import calculate_psnr, calculate_ssim
 
 '''
 Calculate metrics (psnr, ssim) for 2 image sets 

@@ -1,15 +1,16 @@
 import os.path as osp
+import pathlib
 from collections.abc import Iterable
 
 import pytorch_lightning as pl
 import torchvision
+import util
 import wandb
 from globalenv import *
-from toolbox import util
 
 
 class BaseModel(pl.core.LightningModule):
-    def __init__(self, opt, logger_img_group_names):
+    def __init__(self, opt, running_modes):
         '''
         logger_img_group_names: images group names in wandb logger. recommand: ['train', 'valid']
         '''
@@ -18,27 +19,39 @@ class BaseModel(pl.core.LightningModule):
         self.save_hyperparameters(opt)
         console.log('Running initialization for BaseModel')
 
-        self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
-        util.mkdir(self.train_img_dirpath)
-        self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
-        util.mkdir(self.valid_img_dirpath)
-
-        if opt[VALID_DATA][INPUT]:
-            self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
-            util.mkdir(self.valid_img_dirpath)
+        if IMG_DIRPATH in opt:
+            # in training mode.
+            # if in test mode, configLogging is not called.
+            if TRAIN in running_modes:
+                self.train_img_dirpath = osp.join(opt[IMG_DIRPATH], TRAIN)
+                util.mkdir(self.train_img_dirpath)
+            if VALID in running_modes and opt[VALID_DATA][INPUT]:
+                self.valid_img_dirpath = osp.join(opt[IMG_DIRPATH], VALID)
+                util.mkdir(self.valid_img_dirpath)
 
         self.opt = opt
         self.MODEL_WATCHED = False  # for wandb watching model
         self.global_valid_step = 0
 
-        assert isinstance(logger_img_group_names, Iterable)
-        self.logger_image_buffer = {k: [] for k in logger_img_group_names}
+        assert isinstance(running_modes, Iterable)
+        self.logger_image_buffer = {k: [] for k in running_modes}
 
     def get_progress_bar_dict(self):
         items = super().get_progress_bar_dict()
         items.pop("v_num", None)
         # items.pop("loss", None)
         return items
+
+    def build_test_res_dir(self):
+        assert self.opt[CHECKPOINT_PATH]
+        modelpath = pathlib.Path(self.opt[CHECKPOINT_PATH])
+        fname = modelpath.name + '@' + self.opt[DATA][NAME]
+        dirpath = modelpath.parent / TEST_RESULT_DIRNAME
+        while (dirpath / fname).exists():
+            fname += '.new'
+        dirpath /= fname
+        util.mkdir(dirpath)
+        return str(dirpath)
 
     def save_one_img_of_batch(self, batch, dirpath, fname):
         util.mkdir(dirpath)
@@ -59,9 +72,11 @@ class BaseModel(pl.core.LightningModule):
             if self.global_valid_step == 0:
                 console.log(
                     'WARN: Found global_valid_step=0. Maybe you foget to increase `self.global_valid_step` in `self.validation_step`?')
+            log_step = step  # to avoid valid log step = train log step
         elif mode == TRAIN:
             local_dirpath = self.train_img_dirpath
             step = self.global_step
+            log_step = None
 
         if step % self.opt[LOG_EVERY] == 0:
             input_fname = osp.basename(input_fname) + f'_epoch{self.current_epoch}_step{step}.png'
@@ -80,7 +95,7 @@ class BaseModel(pl.core.LightningModule):
                 # save remote image:
                 self.add_img_to_buffer(mode, batch, mode, name, input_fname)
 
-            self.commit_logger_buffer(mode)
+            self.commit_logger_buffer(mode, step=log_step)
 
     def add_img_to_buffer(self, group_name, batch, *caption):
         if len(batch.shape) == 3:
@@ -91,11 +106,11 @@ class BaseModel(pl.core.LightningModule):
             wandb.Image(batch[0], caption='-'.join(caption))
         )
 
-    def commit_logger_buffer(self, groupname):
+    def commit_logger_buffer(self, groupname, **kwargs):
         assert self.logger
         self.logger.experiment.log({
             groupname: self.logger_image_buffer[groupname]
-        })
+        }, **kwargs)
 
         # clear buffer after each commit for the next commit
         self.logger_image_buffer[groupname].clear()

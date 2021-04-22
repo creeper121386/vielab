@@ -1,4 +1,10 @@
 import argparse
+import pathlib
+import sys
+
+# this line is required in each running scripts in toolbox:
+sys.path.append(str(pathlib.Path(__file__).absolute().parent.parent))
+
 import os.path as osp
 
 import cv2
@@ -11,7 +17,7 @@ from rich.progress import track
 c = C()
 
 parser = argparse.ArgumentParser(description='Naive image enhancement methods')
-parser.add_argument('--input', '-i', help='Glob path containing input images.')
+parser.add_argument('--input', '-i', help='Glob command containing input images.')
 parser.add_argument('--output', '-o', help='Output directory.')
 parser.add_argument('--methods', '-m', help='Method to use.', nargs='+')
 
@@ -32,7 +38,7 @@ class HistEq:
 
 class CLAHE:
     def __init__(self):
-        self.clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        self.clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8, 8))
 
     def process_one(self, img):
         for i in range(3):
@@ -48,13 +54,14 @@ method_map = {
 }
 
 
-
 def run(method_name):
     processed_fnames = []
     imgs = glob(args.input)
     c.log(f'Method: {method_name}, Input Images:')
     c.log(imgs)
     model = method_map[method_name]()
+    dstdir = osp.join(args.output, method_name)
+    util.mkdir(dstdir)
     for x in track(imgs):
         img = cv2.imread(x)
         res = model.process_one(np.array(img, dtype=np.uint8))
@@ -69,11 +76,9 @@ def run(method_name):
             c.log(f'[*] {fname} already exists, rename to {new_fname}')
             fname = new_fname
 
-        dstdir = osp.join(args.output, method_name)
         dst = osp.join(dstdir, fname)
         # if not osp.exists(dstdir):
         #     os.makedirs(dstdir)
-        util.mkdir(dstdir)
         cv2.imwrite(dst, res)
 
 

@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-import os
 import os.path as osp
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import cv2
-# import model.model_zoo as zoo
-from model import model_zoo as zoo
+import model.model_zoo as zoo
 import numpy as np
 import omegaconf
 import requests
@@ -15,6 +13,7 @@ import torch
 import yaml
 from globalenv import *
 from matplotlib.image import imread
+# from model import model_zoo as zoo
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
@@ -180,7 +179,9 @@ def calculate_ssim(img1, img2):
 
 
 def configLogging(mode, opt):
-    # mode: train or test
+    # mode: only for training
+
+    assert mode == TRAIN
 
     log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[NAME]}" \
         # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)

@@ -13,11 +13,13 @@ from dataset import ImagesDataset
 from globalenv import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from toolbox.util import checkConfig, configLogging
+from util import checkConfig, configLogging
 from data_aug import parseAugmentation
 
 from model.model_zoo import MODEL_ZOO
-from toolbox.util import send_mail
+from util import send_mail
+
+OPT = None
 
 
 @hydra.main(config_path='config', config_name="config")
@@ -60,7 +62,7 @@ def main(config):
         batch_size=opt[BATCHSIZE],
         shuffle=True,
         num_workers=opt[DATALOADER_NUM_WORKER],
-        drop_last = True
+        drop_last=True
     )
 
     valid_loader = None
@@ -106,19 +108,19 @@ def main(config):
     )
 
     # training loop
+    OPT = opt
     trainer.fit(model, trainloader, val_dataloaders=valid_loader)
-    return opt
 
 
 if __name__ == "__main__":
     try:
-        opt = main()
+        main()
         send_mail(
-            f'[ DONE ] Training finished: {opt[NAME]}',
-            f'Running arguments: {opt}'
+            f'[ DONE ] Training finished: {OPT[NAME]}',
+            f'Running arguments: {OPT}'
         )
 
     except Exception as e:
-        console.log(e)
+        console.print_exception()
         # server_chan_send('[Exception] Training stop.', str(e))
         send_mail('[ ERR ] Training stop by exception.', str(traceback.format_exc()))

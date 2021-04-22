@@ -1,10 +1,10 @@
 # Models-mapping
 from globalenv import *
 
-from .deeplpf import DeepLpfLitModel
-from .ia3dlut import IA3DLUTLitModel
-from .zerodce import ZeroDCELitModel
-from .hdrnet import HDRnetLitModel
+from model.deeplpf import DeepLpfLitModel
+from model.ia3dlut import IA3DLUTLitModel
+from model.zerodce import ZeroDCELitModel
+from model.hdrnet import HDRnetLitModel
 
 # from .ia3dlut import
 MODEL_ZOO = {

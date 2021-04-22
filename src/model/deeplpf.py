@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from globalenv import *
-from toolbox import util
+import util
 from torch.autograd import Variable
 
 from . import unet as unet

@@ -6,7 +6,7 @@ from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
 from model.model_zoo import MODEL_ZOO
-from toolbox.util import checkConfig, configLogging
+from util import checkConfig, configLogging
 
 
 @hydra.main(config_path='config', config_name="config")
@@ -15,7 +15,6 @@ def main(config):
 
     # logging
     console.log('Running config:', opt, log_locals=False)
-    opt[LOG_DIRPATH], opt[IMG_DIRPATH] = configLogging(TRAIN, opt)
     pl_logger = logging.getLogger("lightning")
     pl_logger.propagate = False
 

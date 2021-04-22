@@ -1,8 +1,8 @@
 import os.path as osp
 
 import torch.optim as optim
+import util
 from globalenv import *
-from toolbox import util
 
 from .basemodel import BaseModel
 from .basic_loss import LTVloss
@@ -346,8 +346,10 @@ class Coeffs(nn.Module):
         fusion = self.relu(fusion_grid + fusion_global)
 
         x = self.conv_out(fusion)
-        # s = x.shape
+
+        # reshape channel dimension -> bilateral grid dimensions:
         y = torch.stack(torch.split(x, self.nin * self.nout, 1), 2)
+
         # y = torch.stack(torch.split(y, self.nin, 1),3)
         # print(y.shape)
         # x = x.view(bs,self.nin*self.nout,lb,sb,sb) # B x Coefs x Luma x Spatial x Spatial
