@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import traceback
 
 import hydra
 
@@ -16,6 +17,7 @@ from toolbox.util import checkConfig, configLogging
 from data_aug import parseAugmentation
 
 from model.model_zoo import MODEL_ZOO
+from toolbox.util import send_mail
 
 
 @hydra.main(config_path='config', config_name="config")
@@ -57,7 +59,8 @@ def main(config):
         training_dataset,
         batch_size=opt[BATCHSIZE],
         shuffle=True,
-        num_workers=opt[DATALOADER_NUM_WORKER]
+        num_workers=opt[DATALOADER_NUM_WORKER],
+        drop_last = True
     )
 
     valid_loader = None
@@ -118,4 +121,4 @@ if __name__ == "__main__":
     except Exception as e:
         console.log(e)
         # server_chan_send('[Exception] Training stop.', str(e))
-        send_mail('[ ERR ] Training stop by exception.', str(e))
+        send_mail('[ ERR ] Training stop by exception.', str(traceback.format_exc()))

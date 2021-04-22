@@ -2,7 +2,6 @@
 import logging
 
 import hydra
-import torch
 from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
@@ -32,7 +31,7 @@ def main(config):
     transform = parseAugmentation(opt)
     dataset = ImagesDataset(opt, ds_type=DATA, transform=transform)
     console.log('Finish loading data.')
-    sample_input_tensor = dataset[0][INPUT].unsqueeze(0)
+    sample_input_batch = dataset[0][INPUT].unsqueeze(0)
 
     # only support one input argument in model.forward
     dynamic_ax = {
@@ -40,16 +39,15 @@ def main(config):
         'output': {2: 'H', 3: 'W'}
     }
     fpath = f"../onnx/{opt[NAME]}.onnx"
-    torch.onnx.export(
-        model,
-        sample_input_tensor,
-        fpath,
+    model.to_onnx(
+        fpath, sample_input_batch,
+        export_params=True,
         verbose=True,
         do_constant_folding=True,
         input_names=['input'],  # the model's input names
         output_names=['output'],  # the model's output names
         opset_version=12,
-        dynamic_axes=dynamic_ax
+        # dynamic_axes=dynamic_ax
     )
     console.log(f'[[ DONE ]] ONNX file {fpath} exported.')
 

@@ -7,6 +7,9 @@ from toolbox import util
 from .basemodel import BaseModel
 from .basic_loss import LTVloss
 
+ONNX_INPUT_W = 1280
+ONNX_INPUT_H = 720
+
 
 class HDRnetLitModel(BaseModel):
     def __init__(self, opt):
@@ -43,8 +46,11 @@ class HDRnetLitModel(BaseModel):
         input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)
-        mse_loss = self.mse(output_batch, gt_batch)
 
+        # print('get output of step', self.global_step)
+        # import ipdb; ipdb.set_trace()
+
+        mse_loss = self.mse(output_batch, gt_batch)
         loss = mse_loss
         logged_losses = {MSE: mse_loss}
 
@@ -84,12 +90,12 @@ class HDRnetLitModel(BaseModel):
         output_batch = self.net(low_res_batch, input_batch)
 
         # log metrics
-        if self.global_valid_step % 250 == 0:
-            psnr = util.ImageProcessing.compute_psnr(
-                util.cuda_tensor_to_ndarray(output_batch),
-                util.cuda_tensor_to_ndarray(gt_batch), 1.0
-            )
-            self.log(PSNR, psnr)
+        # if self.global_valid_step % 100 == 0:
+        psnr = util.ImageProcessing.compute_psnr(
+            util.cuda_tensor_to_ndarray(output_batch),
+            util.cuda_tensor_to_ndarray(gt_batch), 1.0
+        )
+        self.log(PSNR, psnr)
 
         # log images
         self.log_images_dict(
@@ -168,10 +174,18 @@ class FC(nn.Module):
 
 # for exporting onnx only!
 class FakeGridSampler(nn.Module):
-    def forward(self, bilateral_grid, guidemap_guide):
-        h, w = guidemap_guide.shape[2:4]
-        bs = guidemap_guide.shape[0]
-        return torch.ones([bs, 12, 1, h, w]).type_as(guidemap_guide)
+    #  shape: [1, 12, 8, 16, 16]
+    # guidemap shape: [1, 1, 720, 1280]
+    # return shape: [1, 12, 1, 720, 1280]
+
+    def forward(self, bilateral_grid, guidemap):
+        # h, w = guidemap_guide.shape[2:4]
+        # bs = guidemap_guide.shape[0]
+
+        fake_returned_value = torch.ones([1, 12, 1, ONNX_INPUT_H, ONNX_INPUT_W]).type_as(guidemap)
+        fake_returned_value /= guidemap
+        fake_returned_value /= bilateral_grid[0, 0, 0, 0, 0]
+        return fake_returned_value
 
 
 class Slice(nn.Module):
@@ -182,31 +196,35 @@ class Slice(nn.Module):
             self.fake_grid_sampler = FakeGridSampler()
 
     def forward(self, bilateral_grid, guidemap):
-        # Nx12x8x16x16
+        # bilateral_grid shape: Nx12x8x16x16
         device = bilateral_grid.get_device()
-        N, _, H, W = guidemap.shape
-        hg, wg = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])  # [0,511] HxW
-        if device >= 0:
-            hg = hg.to(device)
-            wg = wg.to(device)
-
-        # import ipdb;ipdb.set_trace()
-        hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-        wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-        guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
-        guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
         if not self.opt[ONNX_EXPORTING_MODE]:
             # default path.
+            # guidemap shape: [1, 1, H, W]
             # bilateral_grid shape: [1, 12, 8, 16, 16]
             # guidemap_guide shape: [1, 1, 1080, 1920, 3]
             # coeff shape: [1, 12, 1, 1080, 1920]
+
+            N, _, H, W = guidemap.shape
+            hg, wg = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])  # [0,511] HxW
+            if device >= 0:
+                hg = hg.to(device)
+                wg = wg.to(device)
+
+            # import ipdb;ipdb.set_trace()
+            hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
+            wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
+            guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
+            guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
+
             # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
             coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
+
         else:
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
             console.log('>>>>>>>>> [ FATAL WARN ] Use fake grid_sample! <<<<<<<<<<')
-            coeff = self.fake_grid_sampler(bilateral_grid, guidemap_guide)
+            coeff = self.fake_grid_sampler(bilateral_grid, guidemap)
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
 
         return coeff.squeeze(2)
@@ -291,7 +309,14 @@ class Coeffs(nn.Module):
 
     def forward(self, lowres_input):
         params = self.params
-        bs = lowres_input.shape[0]
+        if not params[ONNX_EXPORTING_MODE]:
+            bs = lowres_input.shape[0]
+        else:
+            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
+            console.log('>>>>>>>>> [ FATAL WARN ] Use fake batchsize! <<<<<<<<<<')
+            bs = 1
+            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
+
         lb = params[LUMA_BINS]
         cm = params[CHANNEL_MULTIPLIER]
         sb = params[SPATIAL_BIN]
@@ -321,7 +346,7 @@ class Coeffs(nn.Module):
         fusion = self.relu(fusion_grid + fusion_global)
 
         x = self.conv_out(fusion)
-        s = x.shape
+        # s = x.shape
         y = torch.stack(torch.split(x, self.nin * self.nout, 1), 2)
         # y = torch.stack(torch.split(y, self.nin, 1),3)
         # print(y.shape)
