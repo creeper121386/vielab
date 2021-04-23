@@ -1,7 +1,7 @@
 # @package _group_
 
 modelname: hdrnet
-predict_illumination: false
+predict_illumination: true
 loss:           # when self_supervised is true, this will be ignored.
   ltv: 0.1      # only matters when predict_illumination is true.
   cos: 0.1
@@ -12,4 +12,4 @@ spatial_bin: 16
 batch_norm: true
 low_resolution: 256
 onnx_exporting_mode: false  # use fake grid_sample layer instead torch.nn.functional
-self_supervised: false
+self_supervised: true

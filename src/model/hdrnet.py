@@ -6,6 +6,8 @@ from globalenv import *
 
 from .basemodel import BaseModel
 from .basic_loss import LTVloss
+from .basic_loss import L_TV, L_spa, L_color, L_exp
+
 
 ONNX_INPUT_W = 1280
 ONNX_INPUT_H = 720
@@ -30,9 +32,16 @@ class HDRnetLitModel(BaseModel):
 
         self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
 
-        self.mse = torch.nn.MSELoss()
-        self.ltv = LTVloss()
-        self.cos = torch.nn.CosineSimilarity(1, 1e-8)
+        if not opt[RUNTIME][SELF_SUPERVISED]:
+            self.mse = torch.nn.MSELoss()
+            self.ltv = LTVloss()
+            self.cos = torch.nn.CosineSimilarity(1, 1e-8)
+        else:
+            self.color_loss = L_color()
+            self.spatial_loss = L_spa()
+            self.exposure_loss = L_exp(16, 0.6)
+            self.tvloss = L_TV()
+
         self.net.train()
 
     def configure_optimizers(self):
@@ -47,27 +56,45 @@ class HDRnetLitModel(BaseModel):
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)
 
-        # print('get output of step', self.global_step)
-        # import ipdb; ipdb.set_trace()
+        # supervised training (get loss from output and GT)
+        if not self.opt[RUNTIME][SELF_SUPERVISED]:
+            # calculate loss:
+            mse_loss = self.mse(output_batch, gt_batch)
+            loss = mse_loss
+            logged_losses = {MSE: mse_loss}
 
-        mse_loss = self.mse(output_batch, gt_batch)
-        loss = mse_loss
-        logged_losses = {MSE: mse_loss}
+            # add cos loss
+            cos_weight = self.opt[RUNTIME][LOSS][COS_LOSS]
+            if cos_weight:
+                cos_loss = cos_weight * (1 - self.cos(output_batch, gt_batch).mean()) * 0.5
+                loss += cos_loss
+                logged_losses[COS_LOSS] = cos_loss
 
-        # add cos loss
-        cos_weight = self.opt[RUNTIME][LOSS][COS_LOSS]
-        if cos_weight:
-            cos_loss = cos_weight * (1 - self.cos(output_batch, gt_batch).mean()) * 0.5
-            loss += cos_loss
-            logged_losses[COS_LOSS] = cos_loss
+            # add ltv loss
+            ltv_weight = self.opt[RUNTIME][LOSS][LTV_LOSS]
+            if self.use_illu and ltv_weight:
+                tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weight)
+                loss += tv_loss
+                logged_losses[LTV_LOSS] = tv_loss
+            logged_losses[LOSS] = loss
 
-        # add ltv loss
-        ltv_weight = self.opt[RUNTIME][LOSS][LTV_LOSS]
-        if self.use_illu and ltv_weight:
-            tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weight)
-            loss += tv_loss
-            logged_losses[LTV_LOSS] = tv_loss
-        logged_losses[LOSS] = loss
+        else:
+            # use losses of zeroDCE to do self-supervised training:
+            if self.use_illu:
+                loss_tv = 200 * self.tvloss(self.net.illu_map)
+            else:
+                loss_tv = 200 * self.tvloss(self.net.slice_coeffs)
+            loss_spatial = torch.mean(self.spatial_loss(output_batch, input_batch))
+            loss_color = 5 * torch.mean(self.color_loss(output_batch))
+            loss_exposure = 10 * torch.mean(self.exposure_loss(output_batch))
+            loss = loss_tv + loss_spatial + loss_color + loss_exposure
+            logged_losses = {
+                LTV_LOSS: loss_tv,
+                SPATIAL_LOSS: loss_spatial,
+                COLOR_LOSS: loss_color,
+                EXPOSURE_LOSS: loss_exposure,
+                LOSS: loss
+            }
 
         # logging:
         self.log_dict(logged_losses)
@@ -376,6 +403,7 @@ class HDRPointwiseNN(nn.Module):
         # out = bsa.bsa(coeffs,guide,fullres)
 
         # >>> Using illumination! <<<
+        self.slice_coeffs = slice_coeffs
         if self.opt[PREDICT_ILLUMINATION]:
             self.illu_map = out
             out = fullres / (torch.where(out < fullres, fullres, out) + 1e-7)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
 import os.path as osp
-import pathlib
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -200,7 +200,7 @@ def parse_config(opt, mode):
 
     # check fields in runtime config is the same as template.
     # use `modelname.default.yaml` as template.
-    runtime_config_dir = pathlib.Path(SRC_PATH).absolute() / CONFIG_DIR / RUNTIME
+    runtime_config_dir = SRC_PATH.absolute() / CONFIG_DIR / RUNTIME
     template_yml_path = runtime_config_dir / f'{modelname}.default.yaml'
     console.log(f'Check runtime config: use "{template_yml_path}" as template.')
     assert template_yml_path.exists()

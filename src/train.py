@@ -2,6 +2,7 @@
 import logging
 import traceback
 
+import copy
 import hydra
 import pytorch_lightning as pl
 import torch
@@ -103,7 +104,8 @@ def main(config):
     )
 
     # training loop
-    OPT = opt
+    global OPT
+    OPT = copy.deepcopy(opt)
     trainer.fit(model, trainloader, val_dataloaders=valid_loader)
 
 

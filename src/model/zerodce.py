@@ -1,15 +1,14 @@
-import os
 import os.path as osp
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
-from .basic_loss import L_TV, L_spa, L_color, L_exp
 from globalenv import *
 from torchvision.models.vgg import vgg16
 
 from .basemodel import BaseModel
+from .basic_loss import L_TV, L_spa, L_color, L_exp
 
 
 def weights_init(m):
@@ -43,9 +42,9 @@ class ZeroDCELitModel(BaseModel):
 
     def training_step(self, batch, batch_idx):
         input_batch = batch[INPUT]
-        enhanced_image_1, enhanced_image, A = self.net(input_batch)
+        _, enhanced_image, alpha_map = self.net(input_batch)
 
-        loss_tv = 200 * self.tvloss(A)
+        loss_tv = 200 * self.tvloss(alpha_map)
         loss_spatial = torch.mean(self.spatial_loss(enhanced_image, input_batch))
         loss_color = 5 * torch.mean(self.color_loss(enhanced_image))
         loss_exposure = 10 * torch.mean(self.exposure_loss(enhanced_image))
@@ -187,7 +186,14 @@ class enhance_net_nopool(nn.Module):
         if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
             # predict illumination map:
             output = x / (torch.where(x_r < x, x, x_r) + 1e-7)
+
+            # alter [ 1 ] :
             # output = x * x_r
+
+            # alter [ 2 ]
+            # use alpha map, but only iterate one time
+            # output = x + x_r * (torch.pow(x, 2) - x)
+
             return None, output, x_r
 
         else:

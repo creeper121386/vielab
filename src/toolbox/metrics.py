@@ -19,7 +19,8 @@ usage: python metrics.py '<glob1>' '<glob2>'
 
 assert len(sys.argv) == 3
 assert '~' not in sys.argv[1] and '~' not in sys.argv[2]
-file = osp.join(METRICS_LOG_DIRPATH, f'metrics-{sys.argv[1].replace("/", ".")}-and-{sys.argv[2].replace("/", ".")}.csv')
+file = METRICS_LOG_DIRPATH / f'metrics-{sys.argv[1].replace("/", ".")}-and-{sys.argv[2].replace("/", ".")}.csv'
+print(f'[ LOG ] save result to: {str(file)}')
 folder1 = glob(sys.argv[1])
 folder2 = glob(sys.argv[2])
 
@@ -32,7 +33,7 @@ metrics = {
 console.log(f'[ INFO ] Metrics: {list(metrics.keys())}')
 
 f = open(file, 'w')
-f.write('fname1,fname2,' + ','.join(list(metrics.keys())) + '\n')
+f.write('fname1,fname2,' + ', avg-'.join(list(metrics.keys())) + '\n')
 for x, y in zip(folder1, folder2):
     i += 1
     console.log(f'Now running: {x} & {y}')
@@ -48,13 +49,13 @@ for x, y in zip(folder1, folder2):
         psnr = calculate_psnr(im1, im2)
         metrics[PSNR] += psnr
         console.log(f'[[ {i} ]] PSNR: {psnr}, [[ AVG ]] PSNR: {metrics[PSNR] / i}')
-        f.write(',' + str(psnr))
+        f.write(',' + str(metrics[PSNR]))
 
     if SSIM in metrics:
         ssim = calculate_ssim(im1, im2)
         metrics[SSIM] += ssim
         console.log(f'[[ {i} ]] SSIM: {ssim} - [[ AVG ]] SSIM: {metrics[SSIM] / i}')
-        f.write(',' + str(ssim))
+        f.write(',' + str(metrics[SSIM]))
 
     f.write('\n')
 
