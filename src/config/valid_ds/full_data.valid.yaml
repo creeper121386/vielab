@@ -1,4 +1,5 @@
 # @package _group_
 
+name: full_data.valid
 GT: /data1/why/full_data/full_data/valid/output/*
 input: /data1/why/full_data/full_data/valid/input/*

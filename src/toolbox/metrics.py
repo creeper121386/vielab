@@ -1,5 +1,10 @@
 import os.path as osp
+import pathlib
 import sys
+
+# this line is required in each running scripts in toolbox:
+sys.path.append(str(pathlib.Path(__file__).absolute().parent.parent))
+
 from glob import glob
 
 import numpy as np
@@ -24,13 +29,13 @@ metrics = {
     PSNR: 0,
     # SSIM: 0
 }
-console.log(f'[*] Metrics: {list(metrics.keys())}')
+console.log(f'[ INFO ] Metrics: {list(metrics.keys())}')
 
 f = open(file, 'w')
 f.write('fname1,fname2,' + ','.join(list(metrics.keys())) + '\n')
 for x, y in zip(folder1, folder2):
     i += 1
-    console.log(f'[[{i}]] Now running: {x} and {y}')
+    console.log(f'Now running: {x} & {y}')
     im1 = np.array(Image.open(x))
     im2 = np.array(Image.open(y))
     f.write(f'{x},{y}')
@@ -42,13 +47,13 @@ for x, y in zip(folder1, folder2):
     if PSNR in metrics:
         psnr = calculate_psnr(im1, im2)
         metrics[PSNR] += psnr
-        console.log(f'[[{i}]] PSNR: {psnr}, [[AVG]] PSNR: {metrics[PSNR] / i}')
+        console.log(f'[[ {i} ]] PSNR: {psnr}, [[ AVG ]] PSNR: {metrics[PSNR] / i}')
         f.write(',' + str(psnr))
 
     if SSIM in metrics:
         ssim = calculate_ssim(im1, im2)
         metrics[SSIM] += ssim
-        console.log(f'[[{i}]] SSIM: {ssim} - [[AVG]] SSIM: {metrics[SSIM] / i}')
+        console.log(f'[[ {i} ]] SSIM: {ssim} - [[ AVG ]] SSIM: {metrics[SSIM] / i}')
         f.write(',' + str(ssim))
 
     f.write('\n')

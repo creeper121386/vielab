@@ -5,13 +5,13 @@ import hydra
 from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
-from model.model_zoo import MODEL_ZOO
-from util import checkConfig, configLogging
+from model.model_zoo import parse_model_class
+from util import parse_config, configLogging
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
-    opt = checkConfig(config, TRAIN)
+    opt = parse_config(config, TRAIN)
 
     # logging
     console.log('Running config:', opt, log_locals=False)
@@ -19,7 +19,7 @@ def main(config):
     pl_logger.propagate = False
 
     # init model:
-    ModelClass = MODEL_ZOO[opt[RUNTIME][MODELNAME]]
+    ModelClass = parse_model_class(opt[RUNTIME][MODELNAME])
     if opt[CHECKPOINT_PATH]:
         model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
         console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')

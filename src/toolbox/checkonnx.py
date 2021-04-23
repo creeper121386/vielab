@@ -5,6 +5,7 @@ import numpy as np
 import onnxruntime
 
 '''
+check an onnx model.
 Usage: python checkonnx.py <onnx_path> <input_img_path> <output_img_path>
 '''
 assert len(sys.argv) == 4

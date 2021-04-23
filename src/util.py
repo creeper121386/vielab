@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os.path as osp
+import pathlib
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -13,7 +14,6 @@ import torch
 import yaml
 from globalenv import *
 from matplotlib.image import imread
-# from model import model_zoo as zoo
 from rich import print
 from skimage import measure
 from torch.autograd import Variable
@@ -39,64 +39,9 @@ def send_mail(title, msg_content):
         console.log(f'[[ ERR ]] Title: {title}, Content: {msg_content}')
 
 
-# def init_config(opt):
-#     # print
-#     def hint(k):
-#         os.system('clear')
-#         console.print(f'[yellow]* Current `{k}` config is:[/yellow]')
-#         console.print(opt[k])
-#         print()
-#
-#     opt = omegaconf.OmegaConf.to_container(opt)
-#     updated_contens = {}
-#
-#     # update data, runtime config:
-#     for k in [DATA, RUNTIME]:
-#         hint(k)
-#         console.print('[yellow]* Available values:[/yellow]')
-#         value_list = os.listdir(osp.join(CONFIG_DIRPATH, k))
-#         completer = FuzzyWordCompleter(value_list)
-#         console.print(Markdown(
-#                 ''.join(['\n- ' + x for x in value_list])
-#             ))
-#         print()
-#         in_value = None
-#         while True:
-#             in_value = prompt(f'* Enter the new value of `{k}` (Enter {SKIP_FLAG} to skip): ', completer=completer, complete_while_typing=True)
-#             if in_value in [*value_list, SKIP_FLAG]:
-#                 break
-#
-#         if in_value != SKIP_FLAG:
-#             opt[k] = parseSingleYmlConfig(osp.join(CONFIG_DIRPATH, k, in_value))
-#             updated_contens[k] = opt[k]
-#
-#     # update path config:
-#     for k in [CHECKPOINT_PATH]:
-#         path_completer = PathCompleter()
-#         hint(k)
-#         in_value = None
-#         while True:
-#             in_value = prompt(f'* Enter the new value of `{k}` (Enter {SKIP_FLAG} to skip): ', completer=path_completer,
-#                               complete_while_typing=True)
-#             if osp.exists(in_value) or in_value == SKIP_FLAG:
-#                 break
-#         if in_value != SKIP_FLAG:
-#             opt[k] = in_value
-#             ted_contens[k] = opt[k]
-#
-#     # start running
-#     os.system('clear')
-#     console.log('Start running program.')
-#     if len(updated_contens):
-#         console.log('You have changed the following config:')
-#         console.log(updated_contens)
-#         print()
-#
-#     return opt
-
 def mkdir(dirpath):
     if not osp.exists(dirpath):
-        console.log(f'Creating directory: {dirpath}')
+        console.log(f'Creating directory: "{dirpath}"')
         os.makedirs(dirpath)
         return
     # console.log(f'Directory {dirpath} already exists, skip creating.')
@@ -228,7 +173,7 @@ def saveTensorAsImg(output, path, downsample_factor=False):
     return outImg
 
 
-def checkConfig(opt, mode):
+def parse_config(opt, mode):
     def checkField(opt, name, raise_msg):
         try:
             assert name in opt
@@ -245,14 +190,22 @@ def checkConfig(opt, mode):
     elif mode in [TEST, VALID]:
         necessaryFields = TEST_NECESSARY_ARGUMENTS
     else:
-        raise NotImplementedError('ERR: In function [checkConfig]: unknown mode', mode)
+        raise NotImplementedError('[ ERR ] In function [checkConfig]: unknown mode', mode)
     for x in necessaryFields:
         checkField(opt, x, ARGUMENTS_MISSING_ERRS[x])
 
-    # check necessary arguments for EACH MODEL:
-    assert opt[RUNTIME][MODELNAME] in zoo.MODEL_ZOO
-    for x in zoo.RUNTIME_NECESSARY_ARGUMENTS[opt[RUNTIME][MODELNAME]]:
-        checkField(opt[RUNTIME], x, f'ERR: Config missing argument: {x}')
+    # make sure the model is implemented:
+    modelname = opt[RUNTIME][MODELNAME]
+    assert zoo.parse_model_class(modelname)
+
+    # check fields in runtime config is the same as template.
+    # use `modelname.default.yaml` as template.
+    runtime_config_dir = pathlib.Path(SRC_PATH).absolute() / CONFIG_DIR / RUNTIME
+    template_yml_path = runtime_config_dir / f'{modelname}.default.yaml'
+    console.log(f'Check runtime config: use "{template_yml_path}" as template.')
+    assert template_yml_path.exists()
+    for x in load_yml(str(template_yml_path)):
+        checkField(opt[RUNTIME], x, f'[ ERR ] Runtime config missing argument: {x}')
 
     if type(opt) == omegaconf.DictConfig:
         return omegaconf.OmegaConf.to_container(opt)
@@ -260,7 +213,7 @@ def checkConfig(opt, mode):
 
 
 # (Discarded)
-def parseSingleYmlConfig(ymlpath):
+def load_yml(ymlpath):
     '''
     input config file path (yml file), return config dict.
     '''

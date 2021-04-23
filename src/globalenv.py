@@ -21,8 +21,8 @@ sys.path.append(SRC_PATH)
 ### The following part CAN be edited ###
 # Constants
 TEST_RESULT_DIRNAME = 'test_result'
-CONFIG_DIRPATH = './config'
-CONFIG_FILEPATH = './config/config.yaml'
+CONFIG_DIR = 'config'
+CONFIG_FILEPATH = 'config/config.yaml'
 METRICS_LOG_DIRPATH = '../metrics_log'
 LOG_FILENAME = 'run.log'
 LOG_TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'

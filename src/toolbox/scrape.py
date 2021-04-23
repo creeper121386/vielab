@@ -6,14 +6,18 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
+'''
+scrape images under a tag of flicker.
+'''
+
 BASE_URL = 'https://www.flickr.com/photos/tags/night/'
 DOMAIN = 'https://www.flickr.com/'
 LOCAL_DIR = '/Users/why/Desktop/scrape'
 LOCAL_FILES = os.listdir(LOCAL_DIR)
+PAGE_BEGIN_ID = 12
+PAGE_END_ID = 41
 
 
-# MAX_RUNNING_CMDS_NUM = 16
-# RUNNING_CMDS_NUM = 0
 def sleeped_request(url, stream=False):
     response = ''
     while response == '':
@@ -23,7 +27,7 @@ def sleeped_request(url, stream=False):
         except:
             print("Connection refused by the server..")
             print("Let me sleep for 5 seconds")
-            print("ZZzzzz...")
+            print("Zzzzzz...")
             time.sleep(5)
             print("Was a nice sleep, now let me continue...")
             continue
@@ -60,13 +64,13 @@ def run_one_page(soup, page_id):
     imgs_hrefs = soup.find_all('a', href=re.compile('^/photos/*'), class_='overlay')
     print(f'[*] Found [{len(imgs_hrefs)}] images in page [{page_id}]')
     for x in imgs_hrefs:
-        # 优先1024p得到图片：
+        # 优先爬1024p图片：
         size_page_link = DOMAIN + x['href'] + 'sizes/l/'
         get_one_img(size_page_link)
 
 
 def main():
-    for i in range(12, 41):
+    for i in range(PAGE_BEGIN_ID, PAGE_END_ID):
         url = BASE_URL + f'page{i}'
         # headers = {
         #     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'}

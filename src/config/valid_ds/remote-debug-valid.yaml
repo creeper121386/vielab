@@ -1,5 +1,6 @@
 # @package _group_
 # 没有任何实际含义，仅做测试用
 
+name: remote-debug.valid
 GT: /data1/why/data/vielab-debug/gt/*
 input: /data1/why/data/vielab-debug/input/*

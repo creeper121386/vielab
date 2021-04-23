@@ -1,4 +1,5 @@
 # @package _group_
 
+name: style-trans.valid
 GT: /data1/why/data/paired-scene-fast-selected/stylized/4*.png
 input: /data1/why/data/paired-scene-fast-selected/4*.png

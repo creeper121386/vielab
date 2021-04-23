@@ -27,8 +27,9 @@ node = graph.node
 #     print('\n[ Outputs ] ')
 #     print(n)
 
-# 删除节点
+# >>>>> 修 改 结 构 <<<<<
 
+# 删除节点
 # 注意，所有node是有一定排序的，删除一个节点后，其后续节点的排序会改变，
 # 所有删除节点时一定要先删除序号较后的节点，以免排序改变
 graph.node.remove(node[76])

@@ -36,7 +36,7 @@ class VashCompleter(Completer):
         conf.pop(DEFAULTS, None)
         self.conf = conf
         self.args_names = list(conf.keys())
-        self.groups = [x for x in os.listdir(CONFIG_DIRPATH) if osp.isdir(osp.join(CONFIG_DIRPATH, x))]
+        self.groups = [x for x in os.listdir(CONFIG_DIR) if osp.isdir(osp.join(CONFIG_DIR, x))]
         self.args_values = {x: get_field_words(x) for x in self.groups}
         self.args_names.extend(self.groups)
         self.illegal_characters = ('+', ' ', '=')
@@ -172,7 +172,7 @@ class VashCompleter(Completer):
 
             elif value1 in self.groups:
                 # search in group directory:
-                group_dirpath = osp.join(CONFIG_DIRPATH, value1)
+                group_dirpath = osp.join(CONFIG_DIR, value1)
                 if len(os.listdir(group_dirpath)):
                     # add all yaml files under `group_dirpath` to sub-dict:
                     sub_dict = [
@@ -208,13 +208,13 @@ def bottom_toolbar():
     if mode == TRAIN:
         return HTML('Important args: name, ds, valid_ds, runtime, aug, num_epoch, log_every, valid_every')
     elif mode == TEST:
-        return HTML('Important args: name, ds, runtime, checkpoint_path, aug')
+        return HTML('Important args: ds, runtime, checkpoint_path, aug')
     elif mode == ONNX:
         return HTML('Important args: name, ds, runtime, aug, checkpoint_path')
 
 
 def get_field_words(field):
-    value_list = os.listdir(osp.join(CONFIG_DIRPATH, field))
+    value_list = os.listdir(osp.join(CONFIG_DIR, field))
     # return [field + '=' + x.replace('.yaml', '') for x in value_list]
     return [x.replace('.yaml', '') for x in value_list]
 

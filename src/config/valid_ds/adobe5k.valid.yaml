@@ -1,4 +1,5 @@
 # @package _group_
 
+name: adobe5k.valid
 GT: /data1/why/data/fivK-test/gt/*
 input: /data1/why/data/fivK-test/input/*

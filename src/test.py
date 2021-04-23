@@ -7,23 +7,29 @@ import torchvision
 from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
-from model.model_zoo import MODEL_ZOO
+from model.model_zoo import parse_model_class
 from pytorch_lightning import Trainer
-from util import checkConfig
+from util import parse_config
 
 
 @hydra.main(config_path='config', config_name="config")
 def main(opt):
-    opt = checkConfig(opt, TEST)
+    opt = parse_config(opt, TEST)
     pl_logger = logging.getLogger("lightning")
     pl_logger.propagate = False
 
-    ModelClass = MODEL_ZOO[opt[RUNTIME][MODELNAME]]
+    # passing `valid_ds` will overwrite `ds`
+    if opt[VALID_DATA][INPUT]:
+        console.log('[[ WARN ]] Found `valid_ds` in arguments. The value of `ds` will be overwrited by `valid_ds`.')
+        opt[DATA] = opt[VALID_DATA]
 
-    assert opt[CHECKPOINT_PATH]
-    model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
+    ModelClass = parse_model_class(opt[RUNTIME][MODELNAME])
+
+    ckpt = opt[CHECKPOINT_PATH]
+    assert ckpt
+    model = ModelClass.load_from_checkpoint(ckpt, opt=opt)
     opt[IMG_DIRPATH] = model.build_test_res_dir()
-    console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
+    console.log(f'Loading model from: {ckpt}')
 
     transform = parseAugmentation(opt)
     if opt[AUGMENTATION][CROP]:

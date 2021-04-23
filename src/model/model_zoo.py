@@ -1,55 +1,21 @@
 # Models-mapping
 from globalenv import *
 
-from model.deeplpf import DeepLpfLitModel
-from model.ia3dlut import IA3DLUTLitModel
-from model.zerodce import ZeroDCELitModel
-from model.hdrnet import HDRnetLitModel
 
-# from .ia3dlut import
-MODEL_ZOO = {
-    DEEP_LPF: DeepLpfLitModel,
-    IA3DLUT: IA3DLUTLitModel,
-    ZERODCE: ZeroDCELitModel,
-    HDRNET:HDRnetLitModel,
-}
+def parse_model_class(modelname):
+    if modelname == DEEP_LPF:
+        from model.deeplpf import DeepLpfLitModel as ModelClass
 
-# extra required arguments for each model:
-RUNTIME_NECESSARY_ARGUMENTS = {
-    DEEP_LPF: [
-        MODELNAME,
-        PREDICT_ILLUMINATION,
-        LOSS,
-        FILTERS
-    ],
+    elif modelname == IA3DLUT:
+        from model.ia3dlut import IA3DLUTLitModel as ModelClass
 
-    IA3DLUT: [
-        MODELNAME,
-        MODE,
-        COLOR_SPACE,
-        BETA1,
-        BETA2,
-        LAMBDA_SMOOTH,
-        LAMBDA_MONOTONICITY,
-        LUT_FILEPATH
-    ],
+    elif modelname == ZERODCE:
+        from model.zerodce import ZeroDCELitModel as ModelClass
 
-    ZERODCE: [
-        MODELNAME,
-        PREDICT_ILLUMINATION,
-        WEIGHT_DECAY,
-        GRAD_CLIP_NORM,
-        TEST_PTH
-    ],
+    elif modelname == HDRNET:
+        from model.hdrnet import HDRnetLitModel as ModelClass
 
-    HDRNET: [
-        MODELNAME,
-        LOSS,
-        PREDICT_ILLUMINATION,
-        LUMA_BINS,
-        CHANNEL_MULTIPLIER,
-        SPATIAL_BIN,
-        BATCH_NORM,
-        LOW_RESOLUTION,
-    ]
-}
+    else:
+        raise NotImplementedError(f'[ ERR ] Unknown modelname: {mode}')
+
+    return ModelClass

@@ -1,22 +1,17 @@
 # -*- coding: utf-8 -*-
 import logging
-import os
 import traceback
 
 import hydra
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 import pytorch_lightning as pl
 import torch
+from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
+from model.model_zoo import parse_model_class
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from util import checkConfig, configLogging
-from data_aug import parseAugmentation
-
-from model.model_zoo import MODEL_ZOO
+from util import parse_config, configLogging
 from util import send_mail
 
 OPT = None
@@ -24,7 +19,7 @@ OPT = None
 
 @hydra.main(config_path='config', config_name="config")
 def main(config):
-    opt = checkConfig(config, TRAIN)
+    opt = parse_config(config, TRAIN)
 
     # update debug config (if in debug mode)
     if opt[DEBUG]:
@@ -47,10 +42,11 @@ def main(config):
     pl_logger.propagate = False
 
     # init model:
-    ModelClass = MODEL_ZOO[opt[RUNTIME][MODELNAME]]
-    if opt[CHECKPOINT_PATH]:
-        model = ModelClass.load_from_checkpoint(opt[CHECKPOINT_PATH], opt=opt)
-        console.log(f'Loading model from: {opt[CHECKPOINT_PATH]}')
+    ModelClass = parse_model_class(opt[RUNTIME][MODELNAME])
+    ckpt = opt[CHECKPOINT_PATH]
+    if ckpt:
+        model = ModelClass.load_from_checkpoint(ckpt, opt=opt)
+        console.log(f'Loading model from: {ckpt}')
     else:
         model = ModelClass(opt)
 
@@ -91,7 +87,6 @@ def main(config):
         name=opt[NAME],
         project='vielab',
         notes=None if not opt[COMMENT] else opt[COMMENT],
-        # tags = ['model:' + opt[RUNTIME][MODELNAME], 'ds:' + opt[DATA][NAME]]
         tags=[opt[RUNTIME][MODELNAME], opt[DATA][NAME]],
         save_dir='../'
     )
