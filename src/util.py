@@ -35,8 +35,9 @@ def send_mail(title, msg_content):
         smtp.send_message(msg, FROM_ADDRESS, TO_ADDRESS)
         smtp.quit()
     except:
+        console.print_exception()
         console.log(f'[[ ERR ]] Failed to send email: from {FROM_ADDRESS} -> {TO_ADDRESS}.')
-        console.log(f'[[ ERR ]] Title: {title}, Content: {msg_content}')
+        console.log(f'[[ MSG ]] Title: {title}, Content: {msg_content}')
 
 
 def mkdir(dirpath):
