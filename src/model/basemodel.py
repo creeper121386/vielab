@@ -72,11 +72,11 @@ class BaseModel(pl.core.LightningModule):
             if self.global_valid_step == 0:
                 console.log(
                     'WARN: Found global_valid_step=0. Maybe you foget to increase `self.global_valid_step` in `self.validation_step`?')
-            log_step = step  # to avoid valid log step = train log step
+            # log_step = step  # to avoid valid log step = train log step
         elif mode == TRAIN:
             local_dirpath = self.train_img_dirpath
             step = self.global_step
-            log_step = None
+            # log_step = None
 
         if step % self.opt[LOG_EVERY] == 0:
             input_fname = osp.basename(input_fname) + f'_epoch{self.current_epoch}_step{step}.png'
@@ -95,7 +95,7 @@ class BaseModel(pl.core.LightningModule):
                 # save remote image:
                 self.add_img_to_buffer(mode, batch, mode, name, input_fname)
 
-            self.commit_logger_buffer(mode, step=log_step)
+            self.commit_logger_buffer(mode, step=None)
 
     def add_img_to_buffer(self, group_name, batch, *caption):
         if len(batch.shape) == 3:

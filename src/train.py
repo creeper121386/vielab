@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
+import copy
 import logging
 import traceback
 
-import copy
 import hydra
 import pytorch_lightning as pl
 import torch
@@ -112,9 +112,12 @@ def main(config):
 if __name__ == "__main__":
     try:
         main()
+        import pprint
+
+        content = pprint.pformat(OPT, indent=4)
         send_mail(
             f'[ DONE ] Training finished: {OPT[NAME]}',
-            f'Running arguments: {OPT}'
+            f'[ ARGS ] \n{content}'
         )
 
     except Exception as e:

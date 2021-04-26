@@ -8,7 +8,6 @@ from .basemodel import BaseModel
 from .basic_loss import LTVloss
 from .basic_loss import L_TV, L_spa, L_color, L_exp
 
-
 ONNX_INPUT_W = 1280
 ONNX_INPUT_H = 720
 
@@ -37,6 +36,7 @@ class HDRnetLitModel(BaseModel):
             self.ltv = LTVloss()
             self.cos = torch.nn.CosineSimilarity(1, 1e-8)
         else:
+            console.log('HDRnet in SELF_SUPERVISED mode. Use zerodce losses.')
             self.color_loss = L_color()
             self.spatial_loss = L_spa()
             self.exposure_loss = L_exp(16, 0.6)
@@ -263,6 +263,8 @@ class ApplyCoeffs(nn.Module):
 
     def forward(self, coeff, full_res_input):
         '''
+        coeff shape: [bs, 12, h, w]
+        input shape: [bs, 3, h, w]
             Affine:
             r = a11*r + a12*g + a13*b + a14
             g = a21*r + a22*g + a23*b + a24
@@ -273,6 +275,33 @@ class ApplyCoeffs(nn.Module):
         B = torch.sum(full_res_input * coeff[:, 8:11, :, :], dim=1, keepdim=True) + coeff[:, 11:12, :, :]
 
         return torch.cat([R, G, B], dim=1)
+
+
+class ApplyCoeffsGamma(nn.Module):
+    def __init__(self):
+        super(ApplyCoeffsGamma, self).__init__()
+
+    def forward(self, x_r, x):
+        '''
+        coeff shape: [bs, 12, h, w]
+        apply zeroDCE curve.
+        '''
+
+        # [ 008 ] single iteration:
+        return x + x_r * (torch.pow(x, 2) - x)
+
+        # [ 009 ] 8 iteratoins:
+        # r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
+        # x = x + r1 * (torch.pow(x, 2) - x)
+        # x = x + r2 * (torch.pow(x, 2) - x)
+        # x = x + r3 * (torch.pow(x, 2) - x)
+        # enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
+        # x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
+        # x = x + r6 * (torch.pow(x, 2) - x)
+        # x = x + r7 * (torch.pow(x, 2) - x)
+        # enhance_image = x + r8 * (torch.pow(x, 2) - x)
+        # r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
+        # return enhance_image
 
 
 class GuideNN(nn.Module):
@@ -340,7 +369,7 @@ class Coeffs(nn.Module):
             bs = lowres_input.shape[0]
         else:
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
-            console.log('>>>>>>>>> [ FATAL WARN ] Use fake batchsize! <<<<<<<<<<')
+            console.log('>>>>>>>>> [ FATAL WARN ] Use fake batchsize for onnx! <<<<<<<<<<')
             bs = 1
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
 
@@ -375,6 +404,7 @@ class Coeffs(nn.Module):
         x = self.conv_out(fusion)
 
         # reshape channel dimension -> bilateral grid dimensions:
+        # [bs, 96, 1, 1] -> [bs, 12, 8, 16, 16]
         y = torch.stack(torch.split(x, self.nin * self.nout, 1), 2)
 
         # y = torch.stack(torch.split(y, self.nin, 1),3)
@@ -389,20 +419,24 @@ class HDRPointwiseNN(nn.Module):
     def __init__(self, params):
         super(HDRPointwiseNN, self).__init__()
         self.opt = params
-        self.coeffs = Coeffs(params=params)
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
-        self.apply_coeffs = ApplyCoeffs()
-        # self.bsa = bsa.BilateralSliceApply()
+        if not params[SELF_SUPERVISED]:
+            self.bilateral_grid_prediction_net = Coeffs(params=params)
+            self.apply_coeffs = ApplyCoeffs()
+        else:
+            # [ 007 ] change affine matrix -> alpha map
+            console.log('HDRPointwiseNN in SELF_SUPERVISED mode.')
+            self.bilateral_grid_prediction_net = Coeffs(params=params, nin=1)
+            self.apply_coeffs = ApplyCoeffsGamma()
 
     def forward(self, lowres, fullres):
-        coeffs = self.coeffs(lowres)
+        bilateral_grid = self.bilateral_grid_prediction_net(lowres)
         guide = self.guide(fullres)
-        slice_coeffs = self.slice(coeffs, guide)
+        slice_coeffs = self.slice(bilateral_grid, guide)
         out = self.apply_coeffs(slice_coeffs, fullres)
-        # out = bsa.bsa(coeffs,guide,fullres)
 
-        # >>> Using illumination! <<<
+        # use illu map:
         self.slice_coeffs = slice_coeffs
         if self.opt[PREDICT_ILLUMINATION]:
             self.illu_map = out
