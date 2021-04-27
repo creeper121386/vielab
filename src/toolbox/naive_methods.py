@@ -30,7 +30,6 @@ class HistEq:
 
     def process_one(self, img):
         for i in range(3):
-            one_channel_img = img[:, :, i]
             img[:, :, i] = cv2.equalizeHist(img[:, :, i])
         # img = cv2.equalizeHist(img)
         return img

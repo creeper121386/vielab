@@ -15,6 +15,9 @@ def parse_model_class(modelname):
     elif modelname == HDRNET:
         from model.hdrnet import HDRnetLitModel as ModelClass
 
+    elif modelname == SELF_SUPERVISED_SHDRNET:
+        from model.sshdrnet import HDRnetLitModel as ModelClass
+
     else:
         raise NotImplementedError(f'[ ERR ] Unknown modelname: {mode}')
 

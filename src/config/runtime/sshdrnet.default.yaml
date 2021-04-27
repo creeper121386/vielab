@@ -1,0 +1,13 @@
+# @package _group_
+
+modelname: sshdrnet
+predict_illumination: false
+loss: # when self_supervised is true, this will be ignored.
+  ltv: 0.1      # only matters when predict_illumination is true.
+  cos: 0.1
+
+luma_bins: 8
+channel_multiplier: 1
+spatial_bin: 16
+batch_norm: true
+low_resolution: 256

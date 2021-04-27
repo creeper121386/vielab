@@ -1,15 +1,12 @@
 import os.path as osp
 
+import pytorch_colors as pc
 import torch.optim as optim
 import util
 from globalenv import *
 
 from .basemodel import BaseModel
-from .basic_loss import LTVloss
 from .basic_loss import L_TV, L_spa, L_color, L_exp
-
-ONNX_INPUT_W = 2
-ONNX_INPUT_H = 3
 
 
 class HDRnetLitModel(BaseModel):
@@ -31,16 +28,11 @@ class HDRnetLitModel(BaseModel):
 
         self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
 
-        if not opt[RUNTIME][SELF_SUPERVISED]:
-            self.mse = torch.nn.MSELoss()
-            self.ltv = LTVloss()
-            self.cos = torch.nn.CosineSimilarity(1, 1e-8)
-        else:
-            console.log('HDRnet in SELF_SUPERVISED mode. Use zerodce losses.')
-            self.color_loss = L_color()
-            self.spatial_loss = L_spa()
-            self.exposure_loss = L_exp(16, 0.6)
-            self.tvloss = L_TV()
+        console.log('HDRnet in SELF_SUPERVISED mode. Use zerodce losses.')
+        self.color_loss = L_color()
+        self.spatial_loss = L_spa()
+        self.exposure_loss = L_exp(16, 0.6)
+        self.tvloss = L_TV()
 
         self.net.train()
 
@@ -52,58 +44,40 @@ class HDRnetLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
+        # use hsv:
+        rgb_input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
+        input_batch = pc.rgb_to_hsv(rgb_input_batch)
+
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)
 
-        # supervised training (get loss from output and GT)
-        if not self.opt[RUNTIME][SELF_SUPERVISED]:
-            # calculate loss:
-            mse_loss = self.mse(output_batch, gt_batch)
-            loss = mse_loss
-            logged_losses = {MSE: mse_loss}
-
-            # add cos loss
-            cos_weight = self.opt[RUNTIME][LOSS][COS_LOSS]
-            if cos_weight:
-                cos_loss = cos_weight * (1 - self.cos(output_batch, gt_batch).mean()) * 0.5
-                loss += cos_loss
-                logged_losses[COS_LOSS] = cos_loss
-
-            # add ltv loss
-            ltv_weight = self.opt[RUNTIME][LOSS][LTV_LOSS]
-            if self.use_illu and ltv_weight:
-                tv_loss = self.ltv(input_batch, self.net.illu_map, ltv_weight)
-                loss += tv_loss
-                logged_losses[LTV_LOSS] = tv_loss
-            logged_losses[LOSS] = loss
-
+        # use losses of zeroDCE to do self-supervised training:
+        if self.use_illu:
+            loss_tv = 0.2 * self.tvloss(self.net.illu_map)
         else:
-            # use losses of zeroDCE to do self-supervised training:
-            if self.use_illu:
-                loss_tv = 0.2 * self.tvloss(self.net.illu_map)
-            else:
-                loss_tv = 0.2 * self.tvloss(self.net.slice_coeffs)
-            loss_spatial = 0.5 * torch.mean(self.spatial_loss(output_batch, input_batch))
-            loss_color = 0.2 * torch.mean(self.color_loss(output_batch))
-            loss_exposure = 0.2 * torch.mean(self.exposure_loss(output_batch))
-            loss = loss_tv + loss_spatial + loss_color + loss_exposure
-            logged_losses = {
-                LTV_LOSS: loss_tv,
-                SPATIAL_LOSS: loss_spatial,
-                COLOR_LOSS: loss_color,
-                EXPOSURE_LOSS: loss_exposure,
-                LOSS: loss
-            }
+            loss_tv = 0.2 * self.tvloss(self.net.slice_coeffs)
+        loss_spatial = 0.5 * torch.mean(self.spatial_loss(output_batch, input_batch))
+        loss_exposure = 0.2 * torch.mean(self.exposure_loss(output_batch))
+        # loss_color = 0.2 * torch.mean(self.color_loss(output_batch))
+        # loss = loss_tv + loss_spatial + loss_color + loss_exposure
+        loss = loss_tv + loss_spatial + loss_exposure
+        logged_losses = {
+            LTV_LOSS: loss_tv,
+            SPATIAL_LOSS: loss_spatial,
+            # COLOR_LOSS: loss_color,
+            EXPOSURE_LOSS: loss_exposure,
+            LOSS: loss
+        }
 
         # logging:
+        # import ipdb; ipdb.set_trace()
         self.log_dict(logged_losses)
         self.log_images_dict(
             TRAIN,
             osp.basename(fpaths[0]),
             {
-                INPUT: input_batch,
-                OUTPUT: output_batch,
+                INPUT: rgb_input_batch,
+                OUTPUT: pc.hsv_to_rgb(output_batch.detach()),
                 GT: gt_batch,
                 PREDICT_ILLUMINATION: self.net.illu_map,
                 GUIDEMAP: self.net.guidemap
@@ -201,63 +175,37 @@ class FC(nn.Module):
         return x
 
 
-# for exporting onnx only!
-class FakeGridSampler(nn.Module):
-    #  shape: [1, 12, 8, 16, 16]
-    # guidemap shape: [1, 1, 720, 1280]
-    # return shape: [1, 12, 1, 720, 1280]
-
-    def forward(self, bilateral_grid, guidemap):
-        # h, w = guidemap_guide.shape[2:4]
-        # bs = guidemap_guide.shape[0]
-
-        fake_returned_value = torch.ones([1, 12, 1, ONNX_INPUT_H, ONNX_INPUT_W]).type_as(guidemap)
-        fake_returned_value /= guidemap
-        fake_returned_value /= bilateral_grid[0, 0, 0, 0, 0]
-        return fake_returned_value
-
-
 class Slice(nn.Module):
     def __init__(self, opt):
         super(Slice, self).__init__()
         self.opt = opt
-        if opt[ONNX_EXPORTING_MODE]:
-            self.fake_grid_sampler = FakeGridSampler()
 
     def forward(self, bilateral_grid, guidemap):
         # bilateral_grid shape: Nx12x8x16x16
         device = bilateral_grid.get_device()
         # import ipdb; ipdb.set_trace()
 
-        if not self.opt[ONNX_EXPORTING_MODE]:
-            # default path.
-            # guidemap shape: [1, 1, H, W]
-            # bilateral_grid shape: [1, 12, 8, 16, 16]
-            # guidemap_guide shape: [1, 1, 1080, 1920, 3]
-            # coeff shape: [1, 12, 1, 1080, 1920]
+        # guidemap shape: [1, 1, H, W]
+        # bilateral_grid shape: [1, 12, 8, 16, 16]
+        # guidemap_guide shape: [1, 1, 1080, 1920, 3]
+        # coeff shape: [1, 12, 1, 1080, 1920]
 
-            N, _, H, W = guidemap.shape
-            hg, wg = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])  # [0,511] HxW
-            if device >= 0:
-                hg = hg.to(device)
-                wg = wg.to(device)
+        N, _, H, W = guidemap.shape
+        hg, wg = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])  # [0,511] HxW
+        if device >= 0:
+            hg = hg.to(device)
+            wg = wg.to(device)
 
-            # import ipdb;ipdb.set_trace()
-            hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-            wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-            # TODO: 这里guidemap的值为啥没norm到[-1, 1]啊，奇怪
-            guidemap = guidemap * 2 - 1
-            guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
-            guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
+        # import ipdb;ipdb.set_trace()
+        hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
+        wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
+        # TODO: 这里guidemap的值为啥没norm到[-1, 1]啊，奇怪
+        guidemap = guidemap * 2 - 1
+        guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
+        guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
-            # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
-            coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
-
-        else:
-            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
-            console.log('>>>>>>>>> [ FATAL WARN ] Use fake grid_sample! <<<<<<<<<<')
-            coeff = self.fake_grid_sampler(bilateral_grid, guidemap)
-            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
+        # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
+        coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
         return coeff.squeeze(2)
 
@@ -317,7 +265,7 @@ class ApplyCoeffsGamma(nn.Module):
 
         # [ 015 ] use HSV and only affine V channel:
         # coeff channel num: 3
-        V = torch.sum(x * x_r, dim=1, keepdim=True) + x_r
+        V = torch.sum(x * x_r[:, 0:3, :, :], dim=1, keepdim=True) + x_r[:, 3:4, :, :]
         return torch.cat([x[:, 0:2, ...], V], dim=1)
 
 
@@ -382,14 +330,7 @@ class Coeffs(nn.Module):
 
     def forward(self, lowres_input):
         params = self.params
-        if not params[ONNX_EXPORTING_MODE]:
-            bs = lowres_input.shape[0]
-        else:
-            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
-            console.log('>>>>>>>>> [ FATAL WARN ] Use fake batchsize for onnx! <<<<<<<<<<')
-            bs = 1
-            # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
-
+        bs = lowres_input.shape[0]
         lb = params[LUMA_BINS]
         cm = params[CHANNEL_MULTIPLIER]
         sb = params[SPATIAL_BIN]
@@ -438,19 +379,14 @@ class HDRPointwiseNN(nn.Module):
         self.opt = params
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
-        if not params[SELF_SUPERVISED]:
-            self.coeffs = Coeffs(params=params)
-            self.apply_coeffs = ApplyCoeffs()
-        else:
-            console.log('HDRPointwiseNN in SELF_SUPERVISED mode.')
 
-            # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
-            self.coeffs = Coeffs(params=params, nin=1)
-            self.apply_coeffs = ApplyCoeffsGamma()
+        # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
+        self.coeffs = Coeffs(params=params, nin=4, nout=1)
+        self.apply_coeffs = ApplyCoeffsGamma()
 
-            # [ 011 ] still use affine matrix (same as supervised)
-            # self.coeffs = Coeffs(params=params)
-            # self.apply_coeffs = ApplyCoeffs()
+        # [ 011 ] still use affine matrix (same as supervised)
+        # self.coeffs = Coeffs(params=params)
+        # self.apply_coeffs = ApplyCoeffs()
 
     def forward(self, lowres, fullres):
         bilateral_grid = self.coeffs(lowres)

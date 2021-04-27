@@ -86,6 +86,7 @@ DEEP_LPF = 'deeplpf'
 IA3DLUT = '3dlut'
 ZERODCE = '0dce'
 HDRNET = 'hdrnet'
+SELF_SUPERVISED_SHDRNET = 'sshdrnet'
 
 # config.runtime.deeplpf.*
 PREDICT_ILLUMINATION = 'predict_illumination'

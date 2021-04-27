@@ -198,6 +198,7 @@ class enhance_net_nopool(nn.Module):
 
         else:
             # predict 8 alpha maps:
+            # import ipdb; ipdb.set_trace()
             r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
             x = x + r1 * (torch.pow(x, 2) - x)
             x = x + r2 * (torch.pow(x, 2) - x)
