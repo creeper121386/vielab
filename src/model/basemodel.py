@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import pathlib
 from collections.abc import Iterable
@@ -47,8 +48,20 @@ class BaseModel(pl.core.LightningModule):
         modelpath = pathlib.Path(self.opt[CHECKPOINT_PATH])
         fname = modelpath.name + '@' + self.opt[DATA][NAME]
         dirpath = modelpath.parent / TEST_RESULT_DIRNAME
-        while (dirpath / fname).exists():
-            fname += '.new'
+        if (dirpath / fname).exists():
+            if len(os.listdir(dirpath / fname)) == 0:
+                # an existing but empty dir
+                pass
+            else:
+                input_str = input(
+                    f'[ WARN ] Result directory "" exists. Press ENTER to overwrite or input suffix to create a new one:\n> New name: {fname}.')
+                if input_str == '':
+                    console.log(f"[ WARN ] Overwrite test result: {fname}")
+                    pass
+                else:
+                    fname += '.' + input_str
+            # fname += '.new'
+
         dirpath /= fname
         util.mkdir(dirpath)
         return str(dirpath)

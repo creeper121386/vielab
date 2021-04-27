@@ -5,14 +5,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-try:
-    import trilinear
-except:
-    Warning('WARN: Can not import module `trilinear`')
+# try:
+import trilinear
+# except:
+#     raise('WARN: Can not import module `trilinear`')
 import util
 from globalenv import *
 from torch.autograd import Variable
+
 from .basemodel import BaseModel
 
 

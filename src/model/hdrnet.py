@@ -105,7 +105,8 @@ class HDRnetLitModel(BaseModel):
                 INPUT: input_batch,
                 OUTPUT: output_batch,
                 GT: gt_batch,
-                PREDICT_ILLUMINATION: self.net.illu_map
+                PREDICT_ILLUMINATION: self.net.illu_map,
+                GUIDEMAP: self.net.guidemap
             }
         )
         return loss
@@ -132,7 +133,8 @@ class HDRnetLitModel(BaseModel):
                 INPUT: input_batch,
                 OUTPUT: output_batch,
                 GT: gt_batch,
-                PREDICT_ILLUMINATION: self.net.illu_map
+                PREDICT_ILLUMINATION: self.net.illu_map,
+                GUIDEMAP: self.net.guidemap
             }
         )
         return output_batch
@@ -225,6 +227,7 @@ class Slice(nn.Module):
     def forward(self, bilateral_grid, guidemap):
         # bilateral_grid shape: Nx12x8x16x16
         device = bilateral_grid.get_device()
+        # import ipdb; ipdb.set_trace()
 
         if not self.opt[ONNX_EXPORTING_MODE]:
             # default path.
@@ -242,6 +245,8 @@ class Slice(nn.Module):
             # import ipdb;ipdb.set_trace()
             hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
             wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
+            # TODO: 这里guidemap的值为啥没norm到[-1, 1]啊，奇怪
+            guidemap = guidemap * 2 - 1
             guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
             guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
@@ -422,17 +427,23 @@ class HDRPointwiseNN(nn.Module):
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
         if not params[SELF_SUPERVISED]:
-            self.bilateral_grid_prediction_net = Coeffs(params=params)
+            self.coeffs = Coeffs(params=params)
             self.apply_coeffs = ApplyCoeffs()
         else:
-            # [ 007 ] change affine matrix -> alpha map
             console.log('HDRPointwiseNN in SELF_SUPERVISED mode.')
-            self.bilateral_grid_prediction_net = Coeffs(params=params, nin=1)
-            self.apply_coeffs = ApplyCoeffsGamma()
+
+            # [ 007 ] change affine matrix -> alpha map
+            # self.coeffs = Coeffs(params=params, nin=1)
+            # self.apply_coeffs = ApplyCoeffsGamma()
+
+            # [ 011+ ] still use affine matrix (same as supervised)
+            self.coeffs = Coeffs(params=params)
+            self.apply_coeffs = ApplyCoeffs()
 
     def forward(self, lowres, fullres):
-        bilateral_grid = self.bilateral_grid_prediction_net(lowres)
+        bilateral_grid = self.coeffs(lowres)
         guide = self.guide(fullres)
+        self.guidemap = guide
         slice_coeffs = self.slice(bilateral_grid, guide)
         out = self.apply_coeffs(slice_coeffs, fullres)
 

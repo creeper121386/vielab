@@ -239,7 +239,7 @@ def complete_cmd():
         complete_in_thread=True,
         key_bindings=bindings
     )
-    cmd = f'python -i {mode}.py {args}'
+    cmd = f'ipython {mode}.py {args}'
     console.log(f'Start executing command:\n>>> {cmd.replace("]", "]]").replace("[", "[[")}')
     os.system(cmd)
 

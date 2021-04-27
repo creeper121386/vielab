@@ -120,6 +120,7 @@ NET_INPUT_SIZE = 'net_input_size'
 LOW_RESOLUTION = 'low_resolution'
 ONNX_EXPORTING_MODE = 'onnx_exporting_mode'
 SELF_SUPERVISED = 'self_supervised'
+GUIDEMAP = 'guidemap'
 
 # running mode
 TRAIN = 'train'

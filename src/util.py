@@ -226,7 +226,7 @@ def load_yml(ymlpath):
     else:
         ymlContent = open(ymlpath, 'r').read()
 
-    yml = yaml.load(ymlContent)
+    yml = yaml.load(ymlContent, Loader=yaml.FullLoader)
     return yml
 
 
