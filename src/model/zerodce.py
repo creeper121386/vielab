@@ -77,7 +77,7 @@ class ZeroDCELitModel(BaseModel):
         # batchsize must be 1:
         assert output_batch.shape[0] == 1
 
-        dst_fname = os.path.join(self.opt[IMG_DIRPATH], osp.basename(fname))
+        dst_fname = osp.join(self.opt[IMG_DIRPATH], osp.basename(fname))
         torchvision.utils.save_image(output_batch[0], dst_fname)
 
     def forward(self, x):

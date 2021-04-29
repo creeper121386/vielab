@@ -129,19 +129,15 @@ def configLogging(mode, opt):
 
     assert mode == TRAIN
 
-    log_dirpath = f"../{mode}_log/{opt[RUNTIME][MODELNAME]}/{opt[NAME]}" \
-        # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)
-    img_dirpath = osp.join(log_dirpath, IMAGES)
+    log_dirpath = Path('..') / TRAIN_LOG_DIRNAME / opt[RUNTIME][MODELNAME] / opt[NAME]
+    # + datetime.datetime.now().strftime(LOG_TIME_FORMAT)
+    img_dirpath = log_dirpath / IMAGES
+    save_opt_fpath = log_dirpath / OPT_FILENAME
+    with save_opt_fpath.open('w', encoding="utf-8") as f:
+        yaml.dump(opt, f, default_flow_style=False)
 
     mkdir(log_dirpath)
     mkdir(img_dirpath)
-
-    # handlers = [logging.FileHandler(osp.join(log_dirpath, LOG_FILENAME)), logging.StreamHandler()]
-    # logging.basicConfig(
-    #     level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', handlers=handlers)
-    # for k, v in opt.items():
-    #     logging.info(f'*** Param - {k}: {v}')
-
     return log_dirpath, img_dirpath
 
 

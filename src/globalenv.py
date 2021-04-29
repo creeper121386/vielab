@@ -21,9 +21,11 @@ sys.path.append(str(SRC_PATH))
 ### The following part CAN be edited ###
 # Constants
 TEST_RESULT_DIRNAME = 'test_result'
+TRAIN_LOG_DIRNAME = 'train_log'
 CONFIG_DIR = 'config'
 CONFIG_FILEPATH = 'config/config.yaml'
 METRICS_LOG_DIRPATH = Path(SRC_PATH).parent / 'metrics_log'
+OPT_FILENAME = 'CONFIG'
 LOG_FILENAME = 'run.log'
 LOG_TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
 INPUT = 'input'
@@ -122,6 +124,9 @@ LOW_RESOLUTION = 'low_resolution'
 ONNX_EXPORTING_MODE = 'onnx_exporting_mode'
 SELF_SUPERVISED = 'self_supervised'
 GUIDEMAP = 'guidemap'
+
+# config.runtime.sshdrnet.*
+USE_HSV = 'use_hsv'
 
 # running mode
 TRAIN = 'train'

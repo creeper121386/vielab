@@ -12,6 +12,10 @@ ONNX_INPUT_W = 2
 ONNX_INPUT_H = 3
 
 
+def debug_tensor(tensor, name):
+    np.save(name, util.cuda_tensor_to_ndarray(tensor))
+
+
 class HDRnetLitModel(BaseModel):
     def __init__(self, opt):
         super().__init__(opt, [TRAIN, VALID])
@@ -227,15 +231,10 @@ class Slice(nn.Module):
     def forward(self, bilateral_grid, guidemap):
         # bilateral_grid shape: Nx12x8x16x16
         device = bilateral_grid.get_device()
-        # import ipdb; ipdb.set_trace()
+        import ipdb;
+        ipdb.set_trace()
 
         if not self.opt[ONNX_EXPORTING_MODE]:
-            # default path.
-            # guidemap shape: [1, 1, H, W]
-            # bilateral_grid shape: [1, 12, 8, 16, 16]
-            # guidemap_guide shape: [1, 1, 1080, 1920, 3]
-            # coeff shape: [1, 12, 1, 1080, 1920]
-
             N, _, H, W = guidemap.shape
             hg, wg = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])  # [0,511] HxW
             if device >= 0:
@@ -245,12 +244,23 @@ class Slice(nn.Module):
             # import ipdb;ipdb.set_trace()
             hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
             wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-            # TODO: 这里guidemap的值为啥没norm到[-1, 1]啊，奇怪
             guidemap = guidemap * 2 - 1
             guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
-            guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
+            guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1)
+
+            # guidemap shape: [N, 1 (D), H, W]
+            # bilateral_grid shape: [N, 12 (c), 8 (d), 16 (h), 16 (w)], which is considered as a 3D space: [8, 16, 16]
+            # guidemap_guide shape: [N, 1 (D), H, W, 3], which is considered as a 3D space: [1, H, W]
+            # coeff shape: [N, 12 (c), 1 (D), H, W]
 
             # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
+            # guidemap_guide[N, D, H, W] is a 3-vector <x, y, z>. but:
+            #       x -> W, y -> H, z -> D  in bilater_grid
+            # What does it really do:
+            #   [ 1 ] For pixel in guidemap_guide[D, H, W], get <x,y,z>, and:
+            #   [ 2 ] Normalize <x, y, z> from [-1, 1] to [0, w - 1], [0, h - 1], [0, d - 1], respectively.
+            #   [ 3 ] Locate pixel in bilateral_grid at position [N, :, z, y, x].
+            #   [ 4 ] Interplate using the neighbor values as the output affine matrix.
             coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
         else:

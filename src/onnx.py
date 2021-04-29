@@ -6,7 +6,6 @@ from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
 from model.model_zoo import parse_model_class
-from util import parse_config, configLogging
 
 
 @hydra.main(config_path='config', config_name="config")

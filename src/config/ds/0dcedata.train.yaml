@@ -1,0 +1,5 @@
+# @package _group_
+
+name: 0dce-train
+GT: false
+input: /data1/why/data/train_data/*

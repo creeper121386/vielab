@@ -44,45 +44,53 @@ class HDRnetLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        # use hsv:
-        rgb_input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
-        input_batch = pc.rgb_to_hsv(rgb_input_batch)
+        rgb_input_batch, fpaths = batch[INPUT], batch[FPATH]
+        gt_batch = batch[GT] if GT in batch else None
 
+        # use hsv or not?
+        use_hsv = self.opt[RUNTIME][USE_HSV]
+        input_batch = pc.rgb_to_hsv(rgb_input_batch) if use_hsv else rgb_input_batch
+
+        # get output
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)
 
-        # use losses of zeroDCE to do self-supervised training:
+        # use losses of zeroDCE:
         if self.use_illu:
-            loss_tv = 0.2 * self.tvloss(self.net.illu_map)
+            smoothed_map = self.net.illu_map
         else:
-            loss_tv = 0.2 * self.tvloss(self.net.slice_coeffs)
-        loss_spatial = 0.5 * torch.mean(self.spatial_loss(output_batch, input_batch))
-        loss_exposure = 0.2 * torch.mean(self.exposure_loss(output_batch))
-        # loss_color = 0.2 * torch.mean(self.color_loss(output_batch))
-        # loss = loss_tv + loss_spatial + loss_color + loss_exposure
-        loss = loss_tv + loss_spatial + loss_exposure
+            smoothed_map = self.net.guidemap
+
+        loss_tv = 200 * self.tvloss(smoothed_map)
+        loss_spatial = 1 * torch.mean(self.spatial_loss(output_batch, input_batch))
+        loss_exposure = 10 * torch.mean(self.exposure_loss(output_batch))
+        loss_color = 5 * torch.mean(self.color_loss(output_batch))
+        loss = loss_tv + loss_spatial + loss_exposure + loss_color
         logged_losses = {
             LTV_LOSS: loss_tv,
             SPATIAL_LOSS: loss_spatial,
-            # COLOR_LOSS: loss_color,
+            COLOR_LOSS: loss_color,
             EXPOSURE_LOSS: loss_exposure,
             LOSS: loss
         }
 
         # logging:
-        # import ipdb; ipdb.set_trace()
         self.log_dict(logged_losses)
-        self.log_images_dict(
-            TRAIN,
-            osp.basename(fpaths[0]),
-            {
-                INPUT: rgb_input_batch,
-                OUTPUT: pc.hsv_to_rgb(output_batch.detach()),
-                GT: gt_batch,
-                PREDICT_ILLUMINATION: self.net.illu_map,
-                GUIDEMAP: self.net.guidemap
-            }
-        )
+        if self.global_step % self.opt[LOG_EVERY] == 0:
+            rgb_output_batch = pc.hsv_to_rgb(output_batch.detach()) \
+                if use_hsv else output_batch
+
+            self.log_images_dict(
+                TRAIN,
+                osp.basename(fpaths[0]),
+                {
+                    INPUT: rgb_input_batch,
+                    OUTPUT: rgb_output_batch,
+                    GT: gt_batch,
+                    PREDICT_ILLUMINATION: self.net.illu_map,
+                    GUIDEMAP: self.net.guidemap
+                }
+            )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -199,10 +207,9 @@ class Slice(nn.Module):
         # import ipdb;ipdb.set_trace()
         hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
         wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
-        # TODO: 这里guidemap的值为啥没norm到[-1, 1]啊，奇怪
         guidemap = guidemap * 2 - 1
         guidemap = guidemap.permute(0, 2, 3, 1).contiguous()
-        guidemap_guide = torch.cat([hg, wg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
+        guidemap_guide = torch.cat([wg, hg, guidemap], dim=3).unsqueeze(1)  # Nx1xHxWx3
 
         # in F.grid_sample, gird is guidemap_guide, input is bilateral_grid
         coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
@@ -247,17 +254,17 @@ class ApplyCoeffsGamma(nn.Module):
 
         # [ 009 ] 8 iteratoins:
         # coeff channel num: 24
-        # r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
-        # x = x + r1 * (torch.pow(x, 2) - x)
-        # x = x + r2 * (torch.pow(x, 2) - x)
-        # x = x + r3 * (torch.pow(x, 2) - x)
-        # enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
-        # x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
-        # x = x + r6 * (torch.pow(x, 2) - x)
-        # x = x + r7 * (torch.pow(x, 2) - x)
-        # enhance_image = x + r8 * (torch.pow(x, 2) - x)
-        # r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
-        # return enhance_image
+        r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
+        x = x + r1 * (torch.pow(x, 2) - x)
+        x = x + r2 * (torch.pow(x, 2) - x)
+        x = x + r3 * (torch.pow(x, 2) - x)
+        enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
+        x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
+        x = x + r6 * (torch.pow(x, 2) - x)
+        x = x + r7 * (torch.pow(x, 2) - x)
+        enhance_image = x + r8 * (torch.pow(x, 2) - x)
+        r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
+        return enhance_image
 
         # [ 014 ] use illu map:
         # coeff channel num: 3
@@ -265,8 +272,8 @@ class ApplyCoeffsGamma(nn.Module):
 
         # [ 015 ] use HSV and only affine V channel:
         # coeff channel num: 3
-        V = torch.sum(x * x_r[:, 0:3, :, :], dim=1, keepdim=True) + x_r[:, 3:4, :, :]
-        return torch.cat([x[:, 0:2, ...], V], dim=1)
+        # V = torch.sum(x * x_r[:, 0:3, :, :], dim=1, keepdim=True) + x_r[:, 3:4, :, :]
+        # return torch.cat([x[:, 0:2, ...], V], dim=1)
 
 
 class GuideNN(nn.Module):
@@ -282,11 +289,10 @@ class GuideNN(nn.Module):
 
 class Coeffs(nn.Module):
 
-    def __init__(self, nin=4, nout=3, params=None):
+    def __init__(self, bg_channel=12, params=None):
         super(Coeffs, self).__init__()
         self.params = params
-        self.nin = nin
-        self.nout = nout
+        self.bg_channel = bg_channel
 
         lb = params[LUMA_BINS]
         cm = params[CHANNEL_MULTIPLIER]
@@ -326,7 +332,7 @@ class Coeffs(nn.Module):
         self.local_features.append(ConvBlock(8 * cm * lb, 8 * cm * lb, 3, activation=None, use_bias=False))
 
         # predicton
-        self.conv_out = ConvBlock(8 * cm * lb, lb * nout * nin, 1, padding=0, activation=None)
+        self.conv_out = ConvBlock(8 * cm * lb, lb * bg_channel, 1, padding=0, activation=None)
 
     def forward(self, lowres_input):
         params = self.params
@@ -363,7 +369,7 @@ class Coeffs(nn.Module):
 
         # reshape channel dimension -> bilateral grid dimensions:
         # [bs, 96, 1, 1] -> [bs, 12, 8, 16, 16]
-        y = torch.stack(torch.split(x, self.nin * self.nout, 1), 2)
+        y = torch.stack(torch.split(x, self.bg_channel, 1), 2)
 
         # y = torch.stack(torch.split(y, self.nin, 1),3)
         # print(y.shape)
@@ -381,7 +387,7 @@ class HDRPointwiseNN(nn.Module):
         self.slice = Slice(params)
 
         # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
-        self.coeffs = Coeffs(params=params, nin=4, nout=1)
+        self.coeffs = Coeffs(params=params, bg_channel=24)
         self.apply_coeffs = ApplyCoeffsGamma()
 
         # [ 011 ] still use affine matrix (same as supervised)
