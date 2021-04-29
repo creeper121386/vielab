@@ -59,7 +59,7 @@ class HDRnetLitModel(BaseModel):
         if self.use_illu:
             smoothed_map = self.net.illu_map
         else:
-            smoothed_map = self.net.guidemap
+            smoothed_map = self.net.slice_coeffs
 
         loss_tv = 200 * self.tvloss(smoothed_map)
         loss_spatial = 1 * torch.mean(self.spatial_loss(output_batch, input_batch))
@@ -248,11 +248,11 @@ class ApplyCoeffsGamma(nn.Module):
         apply zeroDCE curve.
         '''
 
-        # [ 008 ] single iteration alpha map:
+        # [ hdrnet:008 ] single iteration alpha map:
         # coeff channel num: 3
         # return x + x_r * (torch.pow(x, 2) - x)
 
-        # [ 009 ] 8 iteratoins:
+        # [ hdrnet:009 ] 8 iteratoins:
         # coeff channel num: 24
         r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
         x = x + r1 * (torch.pow(x, 2) - x)
@@ -266,11 +266,11 @@ class ApplyCoeffsGamma(nn.Module):
         r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
         return enhance_image
 
-        # [ 014 ] use illu map:
+        # [ hdrnet:014 ] use illu map:
         # coeff channel num: 3
         # return x / (torch.where(x_r < x, x, x_r) + 1e-7)
 
-        # [ 015 ] use HSV and only affine V channel:
+        # [ hdrnet:015 ] use HSV and only affine V channel:
         # coeff channel num: 3
         # V = torch.sum(x * x_r[:, 0:3, :, :], dim=1, keepdim=True) + x_r[:, 3:4, :, :]
         # return torch.cat([x[:, 0:2, ...], V], dim=1)
@@ -386,11 +386,11 @@ class HDRPointwiseNN(nn.Module):
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
 
-        # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
+        # [ hdrnet:008 ] change affine matrix -> other methods (alpha map, illu map)
         self.coeffs = Coeffs(params=params, bg_channel=24)
         self.apply_coeffs = ApplyCoeffsGamma()
 
-        # [ 011 ] still use affine matrix (same as supervised)
+        # [ hdrnet:011 ] still use affine matrix (same as supervised)
         # self.coeffs = Coeffs(params=params)
         # self.apply_coeffs = ApplyCoeffs()
 

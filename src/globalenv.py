@@ -46,9 +46,9 @@ LOG_DIRPATH = 'log_dirpath'
 IMG_DIRPATH = 'img_dirpath'
 DATALOADER_NUM_WORKER = 'dataloader_num_worker'
 VALID_EVERY = 'valid_every'
+LOG_EVERY = 'log_every'
 AUGMENTATION = 'aug'
 NUM_EPOCH = 'num_epoch'
-LOG_EVERY = 'log_every'
 NAME = 'name'
 LOSS = 'loss'
 DATA = 'ds'
@@ -128,13 +128,12 @@ GUIDEMAP = 'guidemap'
 # config.runtime.sshdrnet.*
 USE_HSV = 'use_hsv'
 
+
 # running mode
 TRAIN = 'train'
 TEST = 'test'
 VALID = 'valid'
 ONNX = 'onnx'
-
-# file / dir name
 IMAGES = 'images'
 
 # required arguments in any condition:
@@ -150,7 +149,6 @@ TRAIN_NECESSARY_ARGUMENTS = [
     NUM_EPOCH,
     VALID_EVERY,
     LOG_EVERY,
-    # SAVE_MODEL_EVERY,
     AUGMENTATION,
     VALID_BATCHSIZE
 ]
@@ -160,7 +158,7 @@ TEST_NECESSARY_ARGUMENTS = [
     CHECKPOINT_PATH,
 ]
 
-# email info:
+# email config:
 FROM_ADDRESS = '344915973@qq.com'
 TO_ADDRESS = 'hust.why@qq.com'
 SMTP_SERVER = 'smtp.qq.com'
