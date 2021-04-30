@@ -8,8 +8,8 @@ from .basemodel import BaseModel
 from .basic_loss import LTVloss
 from .basic_loss import L_TV, L_spa, L_color, L_exp
 
-ONNX_INPUT_W = 2
-ONNX_INPUT_H = 3
+ONNX_INPUT_W = 960
+ONNX_INPUT_H = 720
 
 
 def debug_tensor(tensor, name):

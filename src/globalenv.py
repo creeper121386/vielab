@@ -128,7 +128,6 @@ GUIDEMAP = 'guidemap'
 # config.runtime.sshdrnet.*
 USE_HSV = 'use_hsv'
 
-
 # running mode
 TRAIN = 'train'
 TEST = 'test'

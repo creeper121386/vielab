@@ -12,10 +12,6 @@ from .basic_loss import L_TV, L_spa, L_color, L_exp
 class HDRnetLitModel(BaseModel):
     def __init__(self, opt):
         super().__init__(opt, [TRAIN, VALID])
-        # if opt[AUGMENTATION][DOWNSAMPLE] != [512, 512]:
-        #     console.log(
-        #         f'[yellow]HDRnet requires input image size must be [512, 512], However your augmentation mathod is: \n{opt[AUGMENTATION]}. \nMake sure you do the correct augmentation! (Press enter to ignore and continue running.)[/yellow]')
-        #     input()
 
         self.net = HDRPointwiseNN(opt[RUNTIME])
         low_res = opt[RUNTIME][LOW_RESOLUTION]
