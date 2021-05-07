@@ -1,5 +1,9 @@
 import os.path as osp
 
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import util
 from globalenv import *
@@ -166,12 +170,6 @@ class HDRnetLitModel(BaseModel):
         return self.net(low_res_x, x)
 
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-
-
 class ConvBlock(nn.Module):
     def __init__(self, inc, outc, kernel_size=3, padding=1, stride=1, use_bias=True, activation=nn.ReLU,
                  batch_norm=False):
@@ -241,7 +239,6 @@ class Slice(nn.Module):
                 hg = hg.to(device)
                 wg = wg.to(device)
 
-            # import ipdb;ipdb.set_trace()
             hg = hg.float().repeat(N, 1, 1).unsqueeze(3) / (H - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
             wg = wg.float().repeat(N, 1, 1).unsqueeze(3) / (W - 1) * 2 - 1  # norm to [-1,1] NxHxWx1
             guidemap = guidemap * 2 - 1
@@ -263,12 +260,14 @@ class Slice(nn.Module):
             #   [ 4 ] Interplate using the neighbor values as the output affine matrix.
             coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
+            import ipdb;
+            ipdb.set_trace()
+
         else:
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
             console.log('>>>>>>>>> [ FATAL WARN ] Use fake grid_sample! <<<<<<<<<<')
             coeff = self.fake_grid_sampler(bilateral_grid, guidemap)
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<
-
         return coeff.squeeze(2)
 
 
