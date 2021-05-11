@@ -12,8 +12,7 @@ from globalenv import *
 from model.model_zoo import parse_model_class
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from util import parse_config, configLogging
-from util import send_mail
+from util import parse_config, configLogging, send_mail
 
 OPT = None
 

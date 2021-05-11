@@ -18,6 +18,9 @@ def parse_model_class(modelname):
     elif modelname == SELF_SUPERVISED_SHDRNET:
         from model.sshdrnet import HDRnetLitModel as ModelClass
 
+    elif modelname == ILLU_BILATERAL_NET:
+        from model.illubn import IlluBilateralLitModel as ModelClass
+
     else:
         raise NotImplementedError(f'[ ERR ] Unknown modelname: {mode}')
 

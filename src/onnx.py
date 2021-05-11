@@ -5,6 +5,7 @@ import hydra
 from data_aug import parseAugmentation
 from dataset import ImagesDataset
 from globalenv import *
+from util import parse_config
 from model.model_zoo import parse_model_class
 
 
@@ -45,7 +46,7 @@ def main(config):
         input_names=['input'],  # the model's input names
         output_names=['output'],  # the model's output names
         opset_version=12,
-        # dynamic_axes=dynamic_ax
+        dynamic_axes=dynamic_ax
     )
     console.log(f'[[ DONE ]] ONNX file {fpath} exported.')
 

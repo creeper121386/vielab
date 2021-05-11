@@ -1,0 +1,5 @@
+# @package _group_
+
+name: adobe5k
+GT: /home/rxwang/why/data/fivk-train/output/*
+input: /home/rxwang/why/data/fivk-train/input/*

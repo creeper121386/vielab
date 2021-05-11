@@ -59,12 +59,15 @@ class ZeroDCELitModel(BaseModel):
         })
 
         # logging image:
-        if self.global_step % self.opt[LOG_EVERY] == 0:
-            fname = osp.basename(batch[FPATH][0]) + f'_epoch{self.current_epoch}_iter{self.global_step}.png'
-            self.save_one_img_of_batch(enhanced_image, self.train_img_dirpath, fname)
-            self.add_img_to_buffer(TRAIN, input_batch, TRAIN, INPUT, fname)
-            self.add_img_to_buffer(TRAIN, enhanced_image, TRAIN, OUTPUT, fname)
-            self.commit_logger_buffer(TRAIN)
+        self.log_images_dict(
+            TRAIN,
+            osp.basename(batch[FPATH][0]),
+            {
+                INPUT: input_batch,
+                OUTPUT: enhanced_image,
+                GT: gt_batch,
+            }
+        )
         return loss
 
     def on_after_backward(self):

@@ -10,45 +10,27 @@ from globalenv import *
 
 from .basemodel import BaseModel
 from .basic_loss import LTVloss
-from .basic_loss import L_TV, L_spa, L_color, L_exp
-
-ONNX_INPUT_W = 960
-ONNX_INPUT_H = 720
 
 
-def debug_tensor(tensor, name):
-    np.save(name, util.cuda_tensor_to_ndarray(tensor))
-
-
-class HDRnetLitModel(BaseModel):
+class IlluBilateralLitModel(BaseModel):
     def __init__(self, opt):
         super().__init__(opt, [TRAIN, VALID])
-        # if opt[AUGMENTATION][DOWNSAMPLE] != [512, 512]:
-        #     console.log(
-        #         f'[yellow]HDRnet requires input image size must be [512, 512], However your augmentation mathod is: \n{opt[AUGMENTATION]}. \nMake sure you do the correct augmentation! (Press enter to ignore and continue running.)[/yellow]')
-        #     input()
-
         self.net = HDRPointwiseNN(opt[RUNTIME])
-        low_res = opt[RUNTIME][LOW_RESOLUTION]
 
-        # for torch1.7:
-        # self.down_sampler = Resize([low_res, low_res])
-
-        # for torch 1.5:
-        self.down_sampler = lambda x: F.interpolate(x, size=(low_res, low_res), mode='bicubic', align_corners=False)
-
-        self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
+        # low_res = opt[RUNTIME][LOW_RESOLUTION]
+        # self.use_illu = opt[RUNTIME][PREDICT_ILLUMINATION]
+        # self.down_sampler = lambda x: F.interpolate(x, size=(low_res, low_res), mode='bicubic', align_corners=False)
 
         if not opt[RUNTIME][SELF_SUPERVISED]:
             self.mse = torch.nn.MSELoss()
             self.ltv = LTVloss()
             self.cos = torch.nn.CosineSimilarity(1, 1e-8)
         else:
-            console.log('HDRnet in SELF_SUPERVISED mode. Use zerodce losses.')
-            self.color_loss = L_color()
-            self.spatial_loss = L_spa()
-            self.exposure_loss = L_exp(16, 0.6)
-            self.tvloss = L_TV()
+            console.log('[[ Init ]] IlluBN in SELF_SUPERVISED mode.')
+            # self.color_loss = L_color()
+            # self.spatial_loss = L_spa()
+            # self.exposure_loss = L_exp(16, 0.6)
+            # self.tvloss = L_TV()
 
         self.net.train()
 
@@ -87,22 +69,23 @@ class HDRnetLitModel(BaseModel):
             logged_losses[LOSS] = loss
 
         else:
-            # use losses of zeroDCE to do self-supervised training:
-            if self.use_illu:
-                loss_tv = 0.2 * self.tvloss(self.net.illu_map)
-            else:
-                loss_tv = 0.2 * self.tvloss(self.net.slice_coeffs)
-            loss_spatial = 0.5 * torch.mean(self.spatial_loss(output_batch, input_batch))
-            loss_color = 0.2 * torch.mean(self.color_loss(output_batch))
-            loss_exposure = 0.2 * torch.mean(self.exposure_loss(output_batch))
-            loss = loss_tv + loss_spatial + loss_color + loss_exposure
-            logged_losses = {
-                LTV_LOSS: loss_tv,
-                SPATIAL_LOSS: loss_spatial,
-                COLOR_LOSS: loss_color,
-                EXPOSURE_LOSS: loss_exposure,
-                LOSS: loss
-            }
+            ...
+            # # use losses of zeroDCE to do self-supervised training:
+            # if self.use_illu:
+            #     loss_tv = 0.2 * self.tvloss(self.net.illu_map)
+            # else:
+            #     loss_tv = 0.2 * self.tvloss(self.net.slice_coeffs)
+            # loss_spatial = 0.5 * torch.mean(self.spatial_loss(output_batch, input_batch))
+            # loss_color = 0.2 * torch.mean(self.color_loss(output_batch))
+            # loss_exposure = 0.2 * torch.mean(self.exposure_loss(output_batch))
+            # loss = loss_tv + loss_spatial + loss_color + loss_exposure
+            # logged_losses = {
+            #     LTV_LOSS: loss_tv,
+            #     SPATIAL_LOSS: loss_spatial,
+            #     COLOR_LOSS: loss_color,
+            #     EXPOSURE_LOSS: loss_exposure,
+            #     LOSS: loss
+            # }
 
         # logging:
         self.log_dict(logged_losses)
@@ -113,8 +96,6 @@ class HDRnetLitModel(BaseModel):
                 INPUT: input_batch,
                 OUTPUT: output_batch,
                 GT: gt_batch,
-                PREDICT_ILLUMINATION: self.net.illu_map,
-                GUIDEMAP: self.net.guidemap
             }
         )
         return loss
@@ -122,8 +103,10 @@ class HDRnetLitModel(BaseModel):
     def validation_step(self, batch, batch_idx):
         self.global_valid_step += 1
         input_batch, gt_batch, fname = batch[INPUT], batch[GT], batch[FPATH][0]
-        low_res_batch = self.down_sampler(input_batch)
-        output_batch = self.net(low_res_batch, input_batch)
+
+        # todo: edit here:
+        # low_res_batch = self.down_sampler(input_batch)
+        # output_batch = self.net(low_res_batch, input_batch)
 
         # log metrics
         # if self.global_valid_step % 100 == 0:
@@ -141,8 +124,6 @@ class HDRnetLitModel(BaseModel):
                 INPUT: input_batch,
                 OUTPUT: output_batch,
                 GT: gt_batch,
-                PREDICT_ILLUMINATION: self.net.illu_map,
-                GUIDEMAP: self.net.guidemap
             }
         )
         return output_batch
@@ -151,19 +132,21 @@ class HDRnetLitModel(BaseModel):
         # test without GT image:
         input_batch, fname = batch[INPUT], batch[FPATH][0]
         assert input_batch.shape[0] == 1
-        low_res_batch = self.down_sampler(input_batch)
-        output_batch = self.net(low_res_batch, input_batch)
-        self.save_one_img_of_batch(
-            output_batch, self.opt[IMG_DIRPATH], osp.basename(fname))
 
-        # test with GT:
-        if GT in batch:
-            # calculate metrics:
-            output_ = util.cuda_tensor_to_ndarray(output_batch)
-            y_ = util.cuda_tensor_to_ndarray(batch[GT])
-            psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
-            ssim = util.ImageProcessing.compute_ssim(output_, y_)
-            self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True, on_step=True, on_epoch=True)
+        # todo: edit here:
+        # low_res_batch = self.down_sampler(input_batch)
+        # output_batch = self.net(low_res_batch, input_batch)
+        # self.save_one_img_of_batch(
+        #     output_batch, self.opt[IMG_DIRPATH], osp.basename(fname))
+        #
+        # # test with GT:
+        # if GT in batch:
+        #     # calculate metrics:
+        #     output_ = util.cuda_tensor_to_ndarray(output_batch)
+        #     y_ = util.cuda_tensor_to_ndarray(batch[GT])
+        #     psnr = util.ImageProcessing.compute_psnr(output_, y_, 1.0)
+        #     ssim = util.ImageProcessing.compute_ssim(output_, y_)
+        #     self.log_dict({PSNR: psnr, SSIM: ssim}, prog_bar=True, on_step=True, on_epoch=True)
 
     def forward(self, x):
         low_res_x = self.down_sampler(x)
@@ -444,6 +427,18 @@ class HDRPointwiseNN(nn.Module):
 
     def __init__(self, params):
         super(HDRPointwiseNN, self).__init__()
+        '''
+        Inference:
+        feed input to network -> get filters
+        input -> upper to 3d bilateral grid (input3d) -> apply filters (multi-times) to get bg output -> slice bg -> get image output
+        
+        Points: how to apply; how to represent filters parameters.
+         
+        Train:
+        use histogram as loss.
+        
+        
+        '''
         self.opt = params
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
