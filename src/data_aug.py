@@ -47,32 +47,35 @@ class Downsample:
         '''
         img: passed by the previous transforms. PIL iamge or np.ndarray
         '''
+        origin_h = img.size[1]
+        origin_w = img.size[0]
         if isinstance(self.downsample_factor, Iterable):
             # pass [h,w]
             if -1 in self.downsample_factor:
                 # automatic calculate the output size:
-                h_scale = img.size[0] / self.downsample_factor[0]
-                w_scale = img.size[1] / self.downsample_factor[1]
+                h_scale = origin_h / self.downsample_factor[0]
+                w_scale = origin_w / self.downsample_factor[1]
 
                 # choose the correct one
                 scale = max(w_scale, h_scale)
                 new_size = [
-                    int(img.size[0] / scale),
-                    int(img.size[1] / scale)
+                    int(origin_h / scale),               # H
+                    int(origin_w / scale)                # W
                 ]
             else:
-                new_size = self.downsample_factor
+                new_size = self.downsample_factor       # [H, W]
 
         elif type(self.downsample_factor + 0.1) == float:
-            # PIL.Image, cv2.resize and torchvision.transforms.Resize accepts [W, H]
+            # pass a number as scale factor
+            # PIL.Image, cv2.resize and torchvision.transforms.Resize all accepts [W, H]
             new_size = [
-                int(img.size[0] / self.downsample_factor),
-                int(img.size[1] / self.downsample_factor)
+                int(img.size[1] / self.downsample_factor),  # H
+                int(img.size[0] / self.downsample_factor)   # W
             ]
         else:
             raise RuntimeError(f'ERR: Wrong config aug.downsample: {self.downsample_factor}')
 
-        img = img.resize(new_size[::-1])
+        img = img.resize(new_size[::-1]) # reverse passed [h, w] to [w, h]
         return img
 
     def __repr__(self):

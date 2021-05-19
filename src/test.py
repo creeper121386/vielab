@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+import time
 
 import hydra
 import torch
@@ -50,7 +51,11 @@ def main(opt):
         num_workers=opt[DATALOADER_NUM_WORKER]
     )
     trainer = Trainer(gpus=opt[GPU], distributed_backend='dp')
+
+    # test.
+    beg = time.time()
     trainer.test(model, dataloader)
+    console.log(f'[ TIMER ] Total time usage: {time.time() - beg}, #Dataset sample num: {len(ds)}')
 
 
 if __name__ == "__main__":

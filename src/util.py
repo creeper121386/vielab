@@ -15,7 +15,8 @@ import yaml
 from globalenv import *
 from matplotlib.image import imread
 from rich import print
-from skimage import measure
+# from skimage import measure
+import skimage.measure as measure
 from torch.autograd import Variable
 
 

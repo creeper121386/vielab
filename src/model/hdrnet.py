@@ -471,6 +471,10 @@ class HDRPointwiseNN(nn.Module):
         # use illu map:
         self.slice_coeffs = slice_coeffs
         if self.opt[PREDICT_ILLUMINATION]:
+
+            # add clip here, cause [ 004 ] has artifact in output of fulldata.
+            out = torch.clamp(out, 0, 1)
+
             self.illu_map = out
             out = fullres / (torch.where(out < fullres, fullres, out) + 1e-7)
         else:
