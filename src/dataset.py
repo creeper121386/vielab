@@ -48,8 +48,8 @@ class ImagesDataset(torch.utils.data.Dataset):
         input_globs = opt[ds_type][INPUT]
         self.have_gt = True if gt_globs else False
 
-        console.log(f'[[{ds_type}]] GT Directory path: [yellow]{gt_globs}[/yellow]')
-        console.log(f'[[{ds_type}]] Input Directory path: [yellow]{input_globs}[/yellow]')
+        console.log(f'{ds_type} - GT Directory path: [yellow]{gt_globs}[/yellow]')
+        console.log(f'{ds_type} - Input Directory path: [yellow]{input_globs}[/yellow]')
 
         # load input images:
         self.input_list = load_from_glob_list(input_globs)
@@ -59,7 +59,7 @@ class ImagesDataset(torch.utils.data.Dataset):
             self.gt_list = load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
-        console.log(f'[[{ds_type}]] Dataset length (Test batch num): {self.__len__()}, Train batch num: {self.__len__() // opt[BATCHSIZE]}')
+        console.log(f'{ds_type} Dataset length (Test batch num): {self.__len__()}, Train batch num: {self.__len__() // opt[BATCHSIZE]}')
 
     def __len__(self):
         return (len(self.input_list))

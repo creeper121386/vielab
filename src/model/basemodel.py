@@ -46,8 +46,12 @@ class BaseModel(pl.core.LightningModule):
     def build_test_res_dir(self):
         assert self.opt[CHECKPOINT_PATH]
         modelpath = pathlib.Path(self.opt[CHECKPOINT_PATH])
-        fname = modelpath.name + '@' + self.opt[DATA][NAME]
+
+        # when passing valid_ds, ignore ds.name and use valid_ds.name instead.
+        ds_type = VALID_DATA if self.opt[VALID_DATA][INPUT] else DATA
+        fname = modelpath.name + '@' + self.opt[ds_type][NAME]
         dirpath = modelpath.parent / TEST_RESULT_DIRNAME
+
         if (dirpath / fname).exists():
             if len(os.listdir(dirpath / fname)) == 0:
                 # an existing but empty dir

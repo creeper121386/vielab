@@ -21,10 +21,10 @@ checkpoint_monitor: loss  # which metrics to monitor for saving the best model.
 
 # define config groups:
 defaults:
-  - aug: crop512
-  - ds: local-debug
+  - aug: none
+  - ds: none
   - runtime: deeplpf.default
-  - valid_ds: none   # only used while training.
+  - valid_ds: none    # used for valid datset when running train.py; `valid_ds` will override `ds` when running test.py
 
 hydra:
   run:

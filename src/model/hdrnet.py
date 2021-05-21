@@ -156,6 +156,12 @@ class HDRnetLitModel(BaseModel):
         self.save_one_img_of_batch(
             output_batch, self.opt[IMG_DIRPATH], osp.basename(fname))
 
+        # save illu map:
+        if self.opt[RUNTIME][PREDICT_ILLUMINATION]:
+            illu_dirpath = Path(self.opt[IMG_DIRPATH]) / 'illu-map'
+            self.save_one_img_of_batch(
+                self.net.illu_map, illu_dirpath, osp.basename(fname))
+
         # test with GT:
         if GT in batch:
             # calculate metrics:
@@ -308,17 +314,17 @@ class ApplyCoeffsGamma(nn.Module):
 
         # [ 009 ] 8 iteratoins:
         # coeff channel num: 24
-        # r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
-        # x = x + r1 * (torch.pow(x, 2) - x)
-        # x = x + r2 * (torch.pow(x, 2) - x)
-        # x = x + r3 * (torch.pow(x, 2) - x)
-        # enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
-        # x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
-        # x = x + r6 * (torch.pow(x, 2) - x)
-        # x = x + r7 * (torch.pow(x, 2) - x)
-        # enhance_image = x + r8 * (torch.pow(x, 2) - x)
-        # r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
-        # return enhance_image
+        r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
+        x = x + r1 * (torch.pow(x, 2) - x)
+        x = x + r2 * (torch.pow(x, 2) - x)
+        x = x + r3 * (torch.pow(x, 2) - x)
+        enhance_image_1 = x + r4 * (torch.pow(x, 2) - x)
+        x = enhance_image_1 + r5 * (torch.pow(enhance_image_1, 2) - enhance_image_1)
+        x = x + r6 * (torch.pow(x, 2) - x)
+        x = x + r7 * (torch.pow(x, 2) - x)
+        enhance_image = x + r8 * (torch.pow(x, 2) - x)
+        r = torch.cat([r1, r2, r3, r4, r5, r6, r7, r8], 1)
+        return enhance_image
 
         # [ 014 ] use illu map:
         # coeff channel num: 3
@@ -326,8 +332,8 @@ class ApplyCoeffsGamma(nn.Module):
 
         # [ 015 ] use HSV and only affine V channel:
         # coeff channel num: 3
-        V = torch.sum(x * x_r, dim=1, keepdim=True) + x_r
-        return torch.cat([x[:, 0:2, ...], V], dim=1)
+        # V = torch.sum(x * x_r, dim=1, keepdim=True) + x_r
+        # return torch.cat([x[:, 0:2, ...], V], dim=1)
 
 
 class GuideNN(nn.Module):
@@ -447,19 +453,19 @@ class HDRPointwiseNN(nn.Module):
         self.opt = params
         self.guide = GuideNN(params=params)
         self.slice = Slice(params)
-        if not params[SELF_SUPERVISED]:
+        if params[COEFFS_TYPE] == MATRIX:
             self.coeffs = Coeffs(params=params)
             self.apply_coeffs = ApplyCoeffs()
-        else:
-            console.log('HDRPointwiseNN in SELF_SUPERVISED mode.')
+
+        elif params[COEFFS_TYPE] == GAMMA:
+            console.log('[ WARN ] HDRPointwiseNN use COEFFS_TYPE: GAMMA.')
 
             # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
-            self.coeffs = Coeffs(params=params, nin=1)
+            self.coeffs = Coeffs(params=params, nin=8)
             self.apply_coeffs = ApplyCoeffsGamma()
 
-            # [ 011 ] still use affine matrix (same as supervised)
-            # self.coeffs = Coeffs(params=params)
-            # self.apply_coeffs = ApplyCoeffs()
+        else:
+            raise NotImplementedError(f'[ ERR ] coeff type {params[COEFFS_TYPE]} unkown.')
 
     def forward(self, lowres, fullres):
         bilateral_grid = self.coeffs(lowres)
@@ -473,8 +479,6 @@ class HDRPointwiseNN(nn.Module):
         if self.opt[PREDICT_ILLUMINATION]:
 
             # add clip here, cause [ 004 ] has artifact in output of fulldata.
-            out = torch.clamp(out, 0, 1)
-
             self.illu_map = out
             out = fullres / (torch.where(out < fullres, fullres, out) + 1e-7)
         else:

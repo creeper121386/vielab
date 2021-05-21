@@ -29,7 +29,7 @@ def main(opt):
     ckpt = opt[CHECKPOINT_PATH]
     assert ckpt
     model = ModelClass.load_from_checkpoint(ckpt, opt=opt)
-    opt[IMG_DIRPATH] = model.build_test_res_dir()
+    model.opt[IMG_DIRPATH] = model.build_test_res_dir()
     console.log(f'Loading model from: {ckpt}')
 
     transform = parseAugmentation(opt)

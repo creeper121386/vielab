@@ -124,6 +124,10 @@ NET_INPUT_SIZE = 'net_input_size'
 LOW_RESOLUTION = 'low_resolution'
 ONNX_EXPORTING_MODE = 'onnx_exporting_mode'
 SELF_SUPERVISED = 'self_supervised'
+COEFFS_TYPE = 'coeffs_type'
+GAMMA = 'gamma'
+MATRIX = 'matrix'
+
 GUIDEMAP = 'guidemap'
 
 # config.runtime.sshdrnet.*

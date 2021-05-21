@@ -69,7 +69,7 @@ def main():
             # N = 40
             # title = '\n'.join(title[i:i + N] for i in range(0, len(title), N))
             img_list.append(Image.open(fpaths[i]))
-            log_fnames.append(fpaths[i])
+            log_fnames.append(str(fpaths[i]))
 
         img_list = fix_imgs_size(img_list)
 

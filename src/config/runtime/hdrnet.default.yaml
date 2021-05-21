@@ -13,3 +13,4 @@ batch_norm: true
 low_resolution: 256
 onnx_exporting_mode: false  # use fake grid_sample layer instead torch.nn.functional
 self_supervised: false
+coeffs_type: matrix    # selected from [matrix, gamma]
