@@ -1,5 +1,6 @@
 import os.path as osp
 
+import ipdb
 import numpy as np
 import torch
 import torch.nn as nn
@@ -60,6 +61,9 @@ class HDRnetLitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
+        # self.show_flops_and_param_num([batch[INPUT]])
+        # ipdb.set_trace()
+
         input_batch, gt_batch, fpaths = batch[INPUT], batch[GT], batch[FPATH]
         low_res_batch = self.down_sampler(input_batch)
         output_batch = self.net(low_res_batch, input_batch)

@@ -88,7 +88,7 @@ def main(config):
         project='vielab',
         notes=None if not opt[COMMENT] else opt[COMMENT],
         tags=[opt[RUNTIME][MODELNAME], opt[DATA][NAME]],
-        save_dir='../'
+        save_dir=ROOT_PATH
     )
 
     # init trainer:

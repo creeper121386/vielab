@@ -130,6 +130,9 @@ class IA3DLUTLitModel(BaseModel):
         #     self.logger.watch(self.cnn)
         #     self.MODEL_WATCHED = True
 
+        # self.show_flops_and_param_num([batch[INPUT]])
+        # ipdb.set_trace()
+
         # get output
         input_batch, gt_batch = Variable(batch[INPUT], requires_grad=False), \
                                 Variable(batch[GT], requires_grad=False)

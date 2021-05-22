@@ -8,6 +8,7 @@ import torchvision
 import util
 import wandb
 from globalenv import *
+from thop import profile
 
 
 class BaseModel(pl.core.LightningModule):
@@ -37,6 +38,12 @@ class BaseModel(pl.core.LightningModule):
         assert isinstance(running_modes, Iterable)
         self.logger_image_buffer = {k: [] for k in running_modes}
 
+    def show_flops_and_param_num(self, inputs):
+        # inputs: arguments of `forward()`
+        flops, params = profile(self, inputs=inputs)
+        console.log('[ * ] FLOPs      =  ' + str(flops / 1000 ** 3) + 'G')
+        console.log('[ * ] Params Num =  ' + str(params / 1000 ** 2) + 'M')
+
     def get_progress_bar_dict(self):
         items = super().get_progress_bar_dict()
         items.pop("v_num", None)
@@ -58,9 +65,9 @@ class BaseModel(pl.core.LightningModule):
                 pass
             else:
                 input_str = input(
-                    f'[ WARN ] Result directory "" exists. Press ENTER to overwrite or input suffix to create a new one:\n> New name: {fname}.')
+                    f'[ WARN ] Result directory "{fname}" exists. Press ENTER to overwrite or input suffix to create a new one:\n> New name: {fname}.')
                 if input_str == '':
-                    console.log(f"[ WARN ] Overwrite test result: {fname}")
+                    console.log(f"[ WARN ] Overwrite result_dir: {fname}")
                     pass
                 else:
                     fname += '.' + input_str
@@ -68,6 +75,8 @@ class BaseModel(pl.core.LightningModule):
 
         dirpath /= fname
         util.mkdir(dirpath)
+        console.log('TEST - Result save path:')
+        console.log(str(dirpath))
         return str(dirpath)
 
     def save_one_img_of_batch(self, batch, dirpath, fname):

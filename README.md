@@ -3,13 +3,13 @@
 `vielab`: Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image enhancement methods:
 
 
-|Model|Source|Paper
-|:---:|:---:|:---:
-|deeplpf|[github repo](https://github.com/sjmoran/DeepLPF)|[paper link](https://arxiv.org/abs/2003.13985)
-|ia3dlut|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[paper link](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf)
-|zerodce| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) 
-|unet| - | - 
-|hdrnet| [github repo (unofficial)](https://github.com/creotiv/hdrnet-pytorch) | [paper link](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf)
+|Model|Source|Paper | Multi-GPU Training
+|:---:|:---:|:---: | :---: 
+|deeplpf|[github repo](https://github.com/sjmoran/DeepLPF)|[paper link](https://arxiv.org/abs/2003.13985) | ❎
+|ia3dlut|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[paper link](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf) | ❎
+|zerodce| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) | ?
+|unet| - | - | ?
+|hdrnet| [github repo (unofficial)](https://github.com/creotiv/hdrnet-pytorch) | [paper link](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf) | ✅
 
 This project is applicable to **ANY** model whose input and output are images, like de-noising,
 HDR, super resolution, and other kinds of enhancement.

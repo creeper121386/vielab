@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 from globalenv import *
+import ipdb
 from torchvision.models.vgg import vgg16
 
 from .basemodel import BaseModel
@@ -41,6 +42,9 @@ class ZeroDCELitModel(BaseModel):
         return optimizer
 
     def training_step(self, batch, batch_idx):
+        # self.show_flops_and_param_num([batch[INPUT]])
+        # ipdb.set_trace()
+
         input_batch = batch[INPUT]
         _, enhanced_image, alpha_map = self.net(input_batch)
 
@@ -65,7 +69,7 @@ class ZeroDCELitModel(BaseModel):
             {
                 INPUT: input_batch,
                 OUTPUT: enhanced_image,
-                GT: gt_batch,
+                GT: batch[GT],
             }
         )
         return loss

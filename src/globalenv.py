@@ -11,6 +11,7 @@ from rich.traceback import install
 install()
 console = Console()
 SRC_PATH = Path(__file__).absolute().parent
+ROOT_PATH = SRC_PATH.parent
 print(f'[ ENV ] add directory {str(SRC_PATH)} to path.')
 sys.path.append(str(SRC_PATH))
 
@@ -24,7 +25,7 @@ TEST_RESULT_DIRNAME = 'test_result'
 TRAIN_LOG_DIRNAME = 'train_log'
 CONFIG_DIR = 'config'
 CONFIG_FILEPATH = 'config/config.yaml'
-METRICS_LOG_DIRPATH = Path(SRC_PATH).parent / 'metrics_log'
+METRICS_LOG_DIRPATH = ROOT_PATH / 'metrics_log'
 OPT_FILENAME = 'CONFIG'
 LOG_FILENAME = 'run.log'
 LOG_TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'

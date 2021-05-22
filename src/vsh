@@ -10,6 +10,10 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles.pygments import style_from_pygments_cls
+from pygments.lexers.shell import BashLexer as Lexer
+from pygments.styles import get_style_by_name
 
 if len(sys.argv) != 2:
     print('Usage: ./vsh <mode>')
@@ -216,6 +220,9 @@ def get_field_words(field):
     # return [field + '=' + x.replace('.yaml', '') for x in value_list]
     return [x.replace('.yaml', '') for x in value_list]
 
+def get_rprompt():
+    return f'[ VIELAB MODE: {mode} ]'
+
 
 def complete_cmd():
     print('* Initializing vsh...')
@@ -225,6 +232,16 @@ def complete_cmd():
 
     conf = yaml.load(open(CONFIG_FILEPATH, 'r').read(), Loader=yaml.FullLoader)
     completer = VashCompleter(conf)
+
+    if mode == TRAIN:
+        style_map = 'paraiso-dark'
+    elif mode == TEST:
+        style_map = 'rrt'
+    elif mode == ONNX:
+        style_map = 'friendly'
+    # style = style_from_pygments_cls(get_style_by_name('fruity'))
+    style = style_from_pygments_cls(get_style_by_name(style_map))
+
     print('* Initializing VashCompleter...')
 
     args = prompt_toolkit.prompt(
@@ -235,7 +252,10 @@ def complete_cmd():
         history=FileHistory(f'../.vielab-{mode}-history'),
         auto_suggest=AutoSuggestFromHistory(),
         complete_in_thread=True,
-        key_bindings=bindings
+        key_bindings=bindings,
+        lexer=PygmentsLexer(Lexer),
+        style=style,
+        rprompt=get_rprompt
     )
     cmd = f'ipython {mode}.py {args}'
     console.log(f'Start executing command:\n>>> {cmd.replace("]", "]]").replace("[", "[[")}')
