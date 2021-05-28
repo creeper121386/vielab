@@ -1,6 +1,6 @@
 # vielab
 
-`vielab`: Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image enhancement methods:
+`vielab`: Video / Image Enhancement Lab, containing the implementation of multiple kinds of deep learning based video and image enhancement methods:
 
 
 |Model|Source|Paper | Multi-GPU Training
