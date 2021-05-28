@@ -10,6 +10,11 @@
 |zerodce| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [paper link](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) | ?
 |unet| - | - | ?
 |hdrnet| [github repo (unofficial)](https://github.com/creotiv/hdrnet-pytorch) | [paper link](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf) | ✅
+|DeepUPE*| [github repo](https://github.com/dvlab-research/DeepUPE) | [paper link](https://drive.google.com/file/d/1CCd0NVEy0yM2ulcrx44B1bRPDmyrgNYH/view?usp=sharing) | ✅
+
+*notes：
+
+- The implementation of DeepUPE and HDRnet share the same code because the only difference between them is that DeepUPE has an extra illumination-map-prediction layer (controlled by `runtime.predict_illumination=true` in config).
 
 This project is applicable to **ANY** model whose input and output are images, like de-noising,
 HDR, super resolution, and other kinds of enhancement.
