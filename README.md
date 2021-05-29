@@ -1,4 +1,7 @@
-# vielab
+[comment]: <> (# vielab)
+
+![http-bw](./figures/logo.svg)
+
 
 `vielab`: Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image enhancement methods:
 
