@@ -85,10 +85,7 @@ Assume that you have created config files for training a model. You only need to
 An example:
 
 ```shell
-ipython test.py  checkpoint_path=../train_log/hdrnet/hd
-rnet-adobe5k-010/last.ckpt ds=adobe5k.train
-valid_ds=adobe5k.valid runtime=hdrnet.default
-runtime.predict_illumination=true aug=none
+ipython test.py  checkpoint_path=../train_log/hdrnet/hdrnet-adobe5k-010/last.ckpt ds=adobe5k.train valid_ds=adobe5k.valid runtime=hdrnet.default runtime.predict_illumination=true aug=none
 ```
 
 ## logging
