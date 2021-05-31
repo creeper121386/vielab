@@ -462,7 +462,7 @@ class HDRPointwiseNN(nn.Module):
             self.apply_coeffs = ApplyCoeffs()
 
         elif params[COEFFS_TYPE] == GAMMA:
-            console.log('[ WARN ] HDRPointwiseNN use COEFFS_TYPE: GAMMA.')
+            console.log('[[ WARN ]] HDRPointwiseNN use COEFFS_TYPE: GAMMA.')
 
             # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
             self.coeffs = Coeffs(params=params, nin=8)

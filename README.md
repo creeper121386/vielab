@@ -2,7 +2,7 @@
 
 ![logo](./figures/logo.png)
 
-`vielab`: Video / Image Enhancement Lab, containing multiple kinds of deep learning based video and image enhancement methods:
+`vielab`(Video / Image Enhancement Lab) is a PyTorch-based codebase developed for computer vision researchers, containing multiple kinds of deep learning based video and image enhancement methods:
 
 
 |Model|Source|Paper | Multi-GPU Training
