@@ -225,6 +225,8 @@ class FakeGridSampler(nn.Module):
 
         fake_returned_value = torch.ones([1, 12, 1, ONNX_INPUT_H, ONNX_INPUT_W]).type_as(guidemap)
         fake_returned_value /= guidemap
+
+        # add 5 indices here. Remember to remove the nodes in the deploy version.
         fake_returned_value /= bilateral_grid[0, 0, 0, 0, 0]
         return fake_returned_value
 
