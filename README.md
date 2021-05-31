@@ -2,6 +2,20 @@
 
 ![logo](./figures/logo.png)
 
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/creeper121386/vielab?color=yellow&style=for-the-badge)](https://github.com/creeper121386/vielab/stargazers) 
+ &nbsp; [![GitHub issues](https://img.shields.io/github/issues/creeper121386/vielab?style=for-the-badge)](https://github.com/creeper121386/vielab/issues)
+&nbsp; [![GitHub forks](https://img.shields.io/github/forks/creeper121386/vielab?style=for-the-badge)](https://github.com/creeper121386/vielab/network)
+&nbsp; ![GitHub repo size](https://img.shields.io/github/repo-size/creeper121386/vielab?color=red&style=for-the-badge)
+
+![](https://img.shields.io/badge/python-3.8-green?style=for-the-badge)
+&nbsp; ![](https://img.shields.io/badge/pytorch-1.5-blueviolet?style=for-the-badge)
+&nbsp; ![](https://img.shields.io/badge/pytorch--lightning-1.2.2-blueviolet?style=for-the-badge)
+
+</div>
+
+
 `vielab`(Video / Image Enhancement Lab) is a PyTorch-based codebase developed for computer vision researchers, containing multiple kinds of deep learning based video and image enhancement methods:
 
 
