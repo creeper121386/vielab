@@ -16,7 +16,7 @@
 </div>
 </br>
 
-`vielab`(Video / Image Enhancement Lab) is a PyTorch-based codebase developed for computer vision researchers, containing multiple kinds of deep learning based video and image enhancement methods:
+`vielab`(Video / Image Enhancement Lab) is a PyTorch codebase for computer vision researchers, encapsulating the implementation of multiple deep learning based video and image enhancement methods, sharing the same training and testing pipeline. Supported methods:
 
 
 |Model|Source|Paper | Multi-GPU Training
@@ -24,7 +24,7 @@
 |deeplpf|[github repo](https://github.com/sjmoran/DeepLPF)|[DeepLPF: Deep Local Parametric Filters for Image Enhancement](https://arxiv.org/abs/2003.13985) | ❎
 |ia3dlut|[github repo](https://github.com/HuiZeng/Image-Adaptive-3DLUT)|[Learning Image-adaptive 3D Lookup Tables for High Performance Photo Enhancement in Real-time](https://www4.comp.polyu.edu.hk/~cslzhang/paper/PAMI_LUT.pdf) | ❎
 |zerodce| [github repo](https://github.com/Li-Chongyi/Zero-DCE) | [Zero-Reference Deep Curve Estimation for Low-Light Image Enhancement](http://openaccess.thecvf.com/content_CVPR_2020/papers/Guo_Zero-Reference_Deep_Curve_Estimation_for_Low-Light_Image_Enhancement_CVPR_2020_paper.pdf) | ?
-|unet| - | - | ?
+|unet| - | [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/pdf/1505.04597) | ?
 |hdrnet| [github repo (unofficial)](https://github.com/creotiv/hdrnet-pytorch) | [Deep Bilateral Learning for Real-Time Image Enhancements](https://groups.csail.mit.edu/graphics/hdrnet/data/hdrnet.pdf) | ✅
 |deepupe<sup>1<sup/>| [github repo](https://github.com/dvlab-research/DeepUPE) | [Underexposed Photo Enhancement Using Deep Illumination Estimation](https://drive.google.com/file/d/1CCd0NVEy0yM2ulcrx44B1bRPDmyrgNYH/view?usp=sharing) | ✅
 
@@ -34,6 +34,8 @@
 </div>
 
 [comment]: <> (The framework of `vielab` is applicable to **ANY** model whose input and output are both images, like de-noising, HDR, super resolution, and other kinds of enhancement.)
+
+The project is developed all on my own and for personal use. Feel free to pull request and open issues! 
 
 ## Environment
 
@@ -48,9 +50,8 @@
 
 ### Training
 
-The project use `Hydra` to manage config files. Config files are located in `./src/config`. `./src/config/config.yaml`
-contains two parts: 
-- General configs for all experiments, like `name, num_epoch, checkpoint_path`
+The project use `Hydra` to manage config files. The main config files is `./src/config/config.yaml`, which contains two parts: 
+- **General configs** for all models and experiments, like `name, num_epoch, checkpoint_path`.
   General config looks like:
   
   ```yaml
@@ -62,13 +63,13 @@ contains two parts:
   save_model_every: 20
   checkpoint_path: false # false for do not load runtime. Necessary when testing.
   ```
-  
-  which is shared by all models.
-  
 
-- And config groups for each experiment: `ds`, `aug` and `runtime`. Config group configs are in `./src/config/<group_name>`.
-  
-  For example, to add a new config file for group `ds`, just create `./src/config/ds/local-debug.yaml`. In such a yaml file, you need to add an extra line at the beginning:
+- **Config groups** for each individual experiment: 
+  - `ds`(dataset config),
+  - `aug`(data augmentation config)
+  - `runtime`(model config). 
+    
+  Config group files are in `./src/config/<group_name>`. For example, to add a new config file in group `ds`, just create `./src/config/ds/new_dataset.yaml`. In such a yaml file, you need to add an extra line at the beginning:
   
   ```
   # @package _group_
@@ -76,27 +77,24 @@ contains two parts:
 
   which means using the group name as package name when including this yaml file.
   
-To run a model, you need to:
+To train a model, you need to:
 
 - choose the dataset by passing command line arguments `ds=<dataset_name>`
-- choose the model config (runtime config) by passing `runtime=<runtime_name>`
+- choose the model (runtime config) by passing `runtime=<runtime_name>`
 
-- Change any configs if you want, for example: `aug=crop512` or `aug.resize=true gpu=[1,2]`. If the
-  arguments are conflict, the previous argument will be overwritten by the later one.
-
-An example:
+- Change any configs if you want, for example: `aug=crop512` or `aug.resize=true gpu=[1,2]`. 
+  
+P.S. If the arguments are conflict, the previous argument will be overwritten by the later one. An example:
 
 ```shell
 python train.py ds=my_data runtime=deeplpf.config1 aug=resize runtime.loss.ltv=0.001 gpu=2 name=demo1
 ```
 
-You could run the command in `bash` or `zsh`, but a better choice is `vsh`: a simple "shell" for `vielab`. For more details, see the [Running in vsh](#running) section.
+You could run the command in `bash` or `zsh`, but a better choice is `vsh`: a simple "shell" for `vielab`. For more details, see [Running in vsh](#running).
 
 ### Test and evaluation
 
-Assume that you have created config files for training a model. You only need to change those necessary parameters (like `name`, `runtime`, `ds` and `checkpoint_path`) to test/evaluate the same model. Just left other parameters default. Although parameters for training like `num_epoch`, `valid_every` will also be passed, it's OK because `test.py` will ignore them.
-
-An example:
+If you have created config files for training a model, you only need to change those necessary parameters (like `name`, `runtime`, `ds` and `checkpoint_path`) to test/evaluate the same model. Just left other training parameters default (like `num_epoch`, `valid_every`), `test.py` will ignore them. An example:
 
 ```shell
 ipython test.py  checkpoint_path=../train_log/hdrnet/hdrnet-adobe5k-010/last.ckpt ds=adobe5k.train valid_ds=adobe5k.valid runtime=hdrnet.default runtime.predict_illumination=true aug=none
@@ -110,13 +108,12 @@ The project uses `wandb` as logger. Before running, make sure you have an accoun
 
 ### `LightningModule.log`
 
-Calling `self.log(name, value, on_step, on_epoch)` in
-of `BaseModel` class to auto-log the metrics to the `wandb` logger. In pytorch-lightning doc:
+Call `BaseModel.log(name, value, on_step, on_epoch)` to auto-log the metrics to the `wandb` logger. In pytorch-lightning doc:
 
 > Depending on where log is called from, Lightning auto-determines the correct logging mode for you.
 
-which means if you call `self.log` in `training_step`, there will be
-`on_step=True, on_epoch=False` by default. if you call `self.log` in `validation_step`, then `on_step=False, on_epoch=True` by default.
+In details, if you call `self.log` in `training_step`, the default setting is
+`on_step=True, on_epoch=False` and if you call `self.log` in `validation_step`, then the default setting is`on_step=False, on_epoch=True`.
 
 So just call `self.log(name, value)` and leaving its arguments default.
 
@@ -192,7 +189,7 @@ Press `up` and `down` to toggle in history commands and press `Ctrl + r` to sear
 
 There are 3 steps to add the source code of a `new_model` to `vielab`:
 
-- Implement the class `NewModel` in `src/model/new_model.py`, inheriting `BaseModel`
+- Implement the class `NewModel` in `src/model/new_model.py`, inheriting `BaseModel`.
 - Add a new line to import `NewModel` in function  `parse_model_class` in `src/model/model_zoo.py`
 - Create runtime config file in `config/runtime/new_model.default.yaml`.
-- If any new `str` constant is used, declare it in `globalenv.py` first.
+- If any new `str` constant is used, declare it in `globalenv.py`.
