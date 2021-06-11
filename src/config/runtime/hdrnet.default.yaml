@@ -2,7 +2,7 @@
 
 modelname: hdrnet
 predict_illumination: false
-loss:           # when self_supervised is true, this will be ignored.
+loss: # when self_supervised is true, this option will be ignored.
   ltv: 0.1      # only matters when predict_illumination is true.
   cos: 0.1
 
@@ -14,3 +14,7 @@ low_resolution: 256
 onnx_exporting_mode: false  # use fake grid_sample layer instead torch.nn.functional
 self_supervised: false
 coeffs_type: matrix    # selected from [matrix, gamma]
+
+# type: false or int.
+# if N, do : illu_map **= N to adjust the brightness of the output.
+illu_map_power: false

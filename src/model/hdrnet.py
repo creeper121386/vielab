@@ -1,6 +1,5 @@
 import os.path as osp
 
-import ipdb
 import numpy as np
 import torch
 import torch.nn as nn
@@ -225,6 +224,8 @@ class FakeGridSampler(nn.Module):
 
         fake_returned_value = torch.ones([1, 12, 1, ONNX_INPUT_H, ONNX_INPUT_W]).type_as(guidemap)
         fake_returned_value /= guidemap
+
+        # add 5 indices here. Remember to remove the nodes in the deploy version.
         fake_returned_value /= bilateral_grid[0, 0, 0, 0, 0]
         return fake_returned_value
 
@@ -462,7 +463,7 @@ class HDRPointwiseNN(nn.Module):
             self.apply_coeffs = ApplyCoeffs()
 
         elif params[COEFFS_TYPE] == GAMMA:
-            console.log('[ WARN ] HDRPointwiseNN use COEFFS_TYPE: GAMMA.')
+            console.log('[[ WARN ]] HDRPointwiseNN use COEFFS_TYPE: GAMMA.')
 
             # [ 008 ] change affine matrix -> other methods (alpha map, illu map)
             self.coeffs = Coeffs(params=params, nin=8)
@@ -482,7 +483,11 @@ class HDRPointwiseNN(nn.Module):
         self.slice_coeffs = slice_coeffs
         if self.opt[PREDICT_ILLUMINATION]:
 
-            # add clip here, cause [ 004 ] has artifact in output of fulldata.
+            power = self.opt[ILLU_MAP_POWER]
+            if power:
+                assert type(power + 0.1) == float
+                out = out.pow(power)
+
             self.illu_map = out
             out = fullres / (torch.where(out < fullres, fullres, out) + 1e-7)
         else:

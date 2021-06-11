@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+import os
 import time
 
 import hydra
@@ -57,6 +58,8 @@ def main(opt):
     trainer.test(model, dataloader)
     console.log(f'[ TIMER ] Total time usage: {time.time() - beg}, #Dataset sample num: {len(ds)}')
 
+    console.log('[ PATH ] The results are in :')
+    console.log(model.opt[IMG_DIRPATH])
 
 if __name__ == "__main__":
     main()

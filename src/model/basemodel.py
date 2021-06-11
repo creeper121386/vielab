@@ -77,6 +77,9 @@ class BaseModel(pl.core.LightningModule):
         util.mkdir(dirpath)
         console.log('TEST - Result save path:')
         console.log(str(dirpath))
+
+        global TEST_DIRPATH
+        TEST_DIRPATH = dirpath
         return str(dirpath)
 
     def save_one_img_of_batch(self, batch, dirpath, fname):

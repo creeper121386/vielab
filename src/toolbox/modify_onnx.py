@@ -1,5 +1,6 @@
 import sys
 
+import ipdb
 import onnx
 
 # from globalenv import console
@@ -32,9 +33,25 @@ node = graph.node
 # 删除节点
 # 注意，所有node是有一定排序的，删除一个节点后，其后续节点的排序会改变，
 # 所有删除节点时一定要先删除序号较后的节点，以免排序改变
-graph.node.remove(node[76])
-graph.node.remove(node[65])
-graph.node.remove(node[64])
+ipdb.set_trace()
+
+no_use_nodes = [
+    76,
+    75,
+    74,
+    73,
+    72,
+    71,
+    70,
+    69,
+    68,
+    67,
+    66,
+    65,
+    64,  # 常数节点
+]
+for node_id in no_use_nodes:
+    graph.node.remove(node[node_id])
 
 # 删除输入
 # for n in graph.input:
@@ -55,7 +72,7 @@ graph.node.remove(node[64])
 # 　新建节点，插入模型中
 new_node = onnx.helper.make_node(
     "ReshapeGuidemapAndGridSample",
-    inputs=['145', '157'],
+    inputs=['145', '140'],
     outputs=['158'],
 )
 graph.node.insert(999, new_node)

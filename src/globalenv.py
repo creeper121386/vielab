@@ -12,11 +12,9 @@ install()
 console = Console()
 SRC_PATH = Path(__file__).absolute().parent
 ROOT_PATH = SRC_PATH.parent
+
 print(f'[ ENV ] add directory {str(SRC_PATH)} to path.')
 sys.path.append(str(SRC_PATH))
-
-# from torch.cuda import is_available as cuda_available
-# CUDA_AVAILABLE = cuda_available()
 
 ########################################
 ### The following part CAN be edited ###
@@ -126,6 +124,7 @@ LOW_RESOLUTION = 'low_resolution'
 ONNX_EXPORTING_MODE = 'onnx_exporting_mode'
 SELF_SUPERVISED = 'self_supervised'
 COEFFS_TYPE = 'coeffs_type'
+ILLU_MAP_POWER = 'illu_map_power'
 GAMMA = 'gamma'
 MATRIX = 'matrix'
 

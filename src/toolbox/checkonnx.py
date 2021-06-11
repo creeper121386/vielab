@@ -1,6 +1,7 @@
 import sys
 
 import cv2
+import ipdb
 import numpy as np
 import onnxruntime
 
@@ -74,22 +75,22 @@ class ONNXModel():
         sr = self.onnx_session.run(self.output_name, input_feed=input_feed)
         return sr
 
-    def forward2(self, image_tensor1, image_tensor2):
-        '''
-        image_tensor = image.transpose(2, 0, 1)
-        image_tensor = image_tensor[np.newaxis, :]
-        onnx_session.run([output_name], {input_name: x})
-        :param image_tensor:
-        :return:
-        '''
-
-        # 输入数据的类型必须与模型一致,以下三种写法都是可以的
-        sr = self.onnx_session.run(None, {self.input_name[0]: image_tensor1, self.input_name[1]: image_tensor2})
-        # scores, boxes = self.onnx_session.run(self.output_name, input_feed={self.input_name: image_tensor})
-        # input_feed = self.get_input_feed(self.input_name, [ image_tensor1, image_tensor2 ])
-        # sr = self.onnx_session.run(self.output_name, input_feed=input_feed)
-
-        return sr
+    # def forward2(self, image_tensor1, image_tensor2):
+    #     '''
+    #     image_tensor = image.transpose(2, 0, 1)
+    #     image_tensor = image_tensor[np.newaxis, :]
+    #     onnx_session.run([output_name], {input_name: x})
+    #     :param image_tensor:
+    #     :return:
+    #     '''
+    #
+    #     # 输入数据的类型必须与模型一致,以下三种写法都是可以的
+    #     sr = self.onnx_session.run(None, {self.input_name[0]: image_tensor1, self.input_name[1]: image_tensor2})
+    #     # scores, boxes = self.onnx_session.run(self.output_name, input_feed={self.input_name: image_tensor})
+    #     # input_feed = self.get_input_feed(self.input_name, [ image_tensor1, image_tensor2 ])
+    #     # sr = self.onnx_session.run(self.output_name, input_feed=input_feed)
+    #
+    #     return sr
 
 
 def main():
@@ -103,6 +104,7 @@ def main():
     # load onnx
     sr_model = ONNXModel(sys.argv[1])
     out_final = sr_model.forward(ins)
+    ipdb.set_trace()
 
     # save output 
     img_cons = out_final[0][0]
