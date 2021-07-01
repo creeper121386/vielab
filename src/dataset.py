@@ -61,6 +61,11 @@ class ImagesDataset(torch.utils.data.Dataset):
 
         console.log(f'{ds_type} Dataset length (Test batch num): {self.__len__()}, Train batch num: {self.__len__() // opt[BATCHSIZE]}')
 
+        if self.__len__() == 0:
+            console.log(f'Error occured! Your ds is: TYPE={ds_type}, config:')
+            console.log(opt[ds_type])
+            raise RuntimeError(f'[ Err ] Dataset input nums is 0!')
+
     def __len__(self):
         return (len(self.input_list))
 
