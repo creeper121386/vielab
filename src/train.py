@@ -99,6 +99,7 @@ def main(config):
         max_epochs=opt[NUM_EPOCH],
         logger=mylogger,
         callbacks=[checkpoint_callback],
+        precision=opt[RUNTIME_PRECISION],
         check_val_every_n_epoch=opt[VALID_EVERY]
     )
 

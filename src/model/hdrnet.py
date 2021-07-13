@@ -269,10 +269,14 @@ class Slice(nn.Module):
             #   [ 2 ] Normalize <x, y, z> from [-1, 1] to [0, w - 1], [0, h - 1], [0, d - 1], respectively.
             #   [ 3 ] Locate pixel in bilateral_grid at position [N, :, z, y, x].
             #   [ 4 ] Interplate using the neighbor values as the output affine matrix.
-            coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
             # import ipdb;
             # ipdb.set_trace()
+
+            # Force them have the same type for fp16 training :
+            guidemap_guide = guidemap_guide.type_as(bilateral_grid)
+            # bilateral_grid = bilateral_grid.type_as(guidemap_guide)
+            coeff = F.grid_sample(bilateral_grid, guidemap_guide, 'bilinear', align_corners=True)
 
         else:
             # >>>>>>>>> only for onnx exporting! <<<<<<<<<<<<<

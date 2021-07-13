@@ -7,6 +7,7 @@ gpu: 1                    # number of gpus to train on (int) or which GPUs to tr
 
 valid_every: 10           # validate every N epochs
 log_every: 100            # log your message, curve or images every N steps
+runtime_precision: 32
 
 dataloader_num_worker: 16
 batchsize: 4

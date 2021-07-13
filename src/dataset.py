@@ -31,6 +31,12 @@ def augment_one_img(img, seed, transform=None):
     return img
 
 
+#
+# def build_lmdb(globs):
+#     file_list = load_from_glob_list(globs)
+#     util.mkdir(LMDB_DIRPATH)
+
+
 class ImagesDataset(torch.utils.data.Dataset):
 
     def __init__(self, opt, ds_type=DATA, transform=None):
@@ -59,7 +65,8 @@ class ImagesDataset(torch.utils.data.Dataset):
             self.gt_list = load_from_glob_list(gt_globs)
             assert len(self.input_list) == len(self.gt_list)
 
-        console.log(f'{ds_type} Dataset length (Test batch num): {self.__len__()}, Train batch num: {self.__len__() // opt[BATCHSIZE]}')
+        console.log(
+            f'{ds_type} Dataset length (Test batch num): {self.__len__()}, Train batch num: {self.__len__() // opt[BATCHSIZE]}')
 
         if self.__len__() == 0:
             console.log(f'Error occured! Your ds is: TYPE={ds_type}, config:')
@@ -98,6 +105,5 @@ class ImagesDataset(torch.utils.data.Dataset):
             gt_img = cv2.imread(self.gt_list[idx])[:, :, [2, 1, 0]]
             gt_img = augment_one_img(gt_img, seed, transform=self.transform)
             res_item[GT] = gt_img
-
 
         return res_item

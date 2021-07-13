@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import logging
-import os
 import time
 
 import hydra
@@ -51,7 +50,7 @@ def main(opt):
         shuffle=False,
         num_workers=opt[DATALOADER_NUM_WORKER]
     )
-    trainer = Trainer(gpus=opt[GPU], distributed_backend='dp')
+    trainer = Trainer(gpus=opt[GPU], distributed_backend='dp', precision=opt[RUNTIME_PRECISION])
 
     # test.
     beg = time.time()
@@ -60,6 +59,7 @@ def main(opt):
 
     console.log('[ PATH ] The results are in :')
     console.log(model.opt[IMG_DIRPATH])
+
 
 if __name__ == "__main__":
     main()
